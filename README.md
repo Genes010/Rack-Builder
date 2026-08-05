@@ -9,6 +9,67 @@ Drizzle support.
 - Node.js `>=22.13.0`
 - Linux with `flock`, `curl`, and GNU `timeout`
 
+## Local Development
+
+Getting the app running locally is a three-step process:
+
+```bash
+# 1. Install dependencies
+npm install
+
+# 2. Create the local hosting-bindings file from the committed example.
+#    This declares the Cloudflare D1 and R2 binding names the app expects
+#    (DB and BUCKET). The real file is git-ignored because the Sites hosting
+#    platform injects it in deployed environments.
+cp .openai/hosting.json.example .openai/hosting.json
+
+# 3. Start the dev server (Vite + Vinext + Miniflare)
+npm run dev
+```
+
+The dev server listens on `http://localhost:5173/`. The Next.js shell embeds the
+builder UI (`public/rack-builder.html`) in an iframe; the API routes under
+`app/api/` are backed by a local Miniflare D1 database (migrations in `drizzle/`
+are applied automatically) and an R2 bucket.
+
+> **Note:** `vite.config.ts` imports `.openai/hosting.json` at startup, so the
+> dev server fails to boot until step 2 is done. If you see
+> `Could not resolve './.openai/hosting.json'`, you skipped it.
+
+To change the schema, edit `db/schema.ts` and run `npm run db:generate` to emit a
+new Drizzle migration.
+
+## Project & Library Storage
+
+The builder saves your named projects and your permanent gear library in the
+**browser** (`localStorage`), so no server or account is required to keep your
+work. Use the top-bar **Export** button to back up or share a single project as
+a `.rack.json` file, and **Import** to load one back. This makes the app fully
+static and deployable to any static host (see below).
+
+> The server-side project/library API routes (`app/api/projects`,
+> `app/api/library`) and their Cloudflare D1/R2 bindings remain in the repo for a
+> future multi-device sync option, but the app no longer depends on them.
+
+## Deploying to GitHub Pages
+
+The builder, connection diagram, and 3D view under `public/` are self-contained
+static pages, so they deploy to GitHub Pages with no build step. A workflow at
+`.github/workflows/deploy-pages.yml` publishes them automatically.
+
+To turn it on:
+
+1. In the repository, go to **Settings → Pages**.
+2. Under **Build and deployment → Source**, choose **GitHub Actions**.
+3. Push to `main` (or run the *Deploy static builder to GitHub Pages* workflow
+   manually from the **Actions** tab). The workflow serves `rack-builder.html`
+   as the site's `index.html`.
+
+The site publishes to `https://<owner>.github.io/<repo>/`. On this static
+deployment the browser-based builder, project storage, gear library, PDF/3D/
+diagram export, and file Import/Export all work. Server-only features (gear
+web search and the image proxy) are inactive.
+
 ## Sites Lifecycle
 
 The Sites lifecycle CLI runs the locked dependency install before returning this checkout. Edit the source under `app/`, then checkpoint when a coherent milestone is ready to inspect or share. The remote Sites builder runs `npm run build` against the pushed commit. Do not repeat install or build as a normal pre-checkpoint step.

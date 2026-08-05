@@ -394,6 +394,7 @@
       <button class="primary" id="saveProject">Save project</button>
     </div>
     <div class="projects-status" id="projectsStatus" aria-live="polite"></div>
+    <div class="projects-hint" style="font-size:12px;opacity:.6;margin:0 0 8px">Projects are saved in this browser. Use <b>Export</b> (top bar) to back up or share a project as a file, and <b>Import</b> to load one back.</div>
     <div class="projects-list" id="projectsList"><div class="project-empty">Loading saved projects…</div></div>
   </div>
 </div>
@@ -577,26 +578,18 @@ function mergeLibraries(primary,additional){
   for(const gear of Array.isArray(additional)?additional:[])if(gear&&gear.id&&!merged.has(gear.id))merged.set(gear.id,gear);
   return [...merged.values()];
 }
+function libraryStatusText(){ const n=state.library.length; return n+' gear item'+(n===1?'':'s')+' · in this browser'; }
 async function savePermanentLibrary(){
-  const snapshot=state.library.map(gear=>({...gear}));
-  setLibraryStatus('Saving permanent library…','syncing');
-  try{
-    const response=await fetch('/api/library',{method:'PUT',headers:{'content-type':'application/json'},body:JSON.stringify({library:snapshot})});
-    const data=await response.json(); if(!response.ok)throw new Error(data.error||'Could not save the gear library.');
-    setLibraryStatus(data.count+' gear item'+(data.count===1?'':'s')+' · saved','saved');
-  }catch(error){ setLibraryStatus('Library save failed','error'); console.warn('library save',error); }
+  // The permanent gear library persists in this browser as part of the saved
+  // state, so there is nothing to send to a server.
+  try{ save(false); setLibraryStatus(libraryStatusText(),'saved'); }
+  catch(error){ setLibraryStatus('Library save failed','error'); console.warn('library save',error); }
 }
 function queuePermanentLibrarySave(delay=450){ clearTimeout(librarySaveTimer); setLibraryStatus('Library has changes…','syncing'); librarySaveTimer=setTimeout(savePermanentLibrary,delay); }
 async function syncPermanentLibrary(){
-  const localLibrary=state.library;
-  setLibraryStatus('Loading permanent library…','syncing');
-  try{
-    const response=await fetch('/api/library'); const data=await response.json(); if(!response.ok)throw new Error(data.error||'Could not load the gear library.');
-    const remoteLibrary=Array.isArray(data.library)?data.library:[];
-    const merged=mergeLibraries(remoteLibrary,localLibrary);
-    state.library=normalizeState({...state,library:merged}).library; save(false); renderLib(); renderRacks();
-    if(merged.length!==remoteLibrary.length)await savePermanentLibrary(); else setLibraryStatus(merged.length+' gear item'+(merged.length===1?'':'s')+' · permanent','saved');
-  }catch(error){ setLibraryStatus('Using local library draft','error'); console.warn('library sync',error); }
+  // Load the browser-local gear library into the view. No server round-trip.
+  renderLib(); renderRacks();
+  setLibraryStatus(libraryStatusText(),'saved');
 }
 function absorbLegacyProjectLibrary(projectState){
   const legacy=projectState&&Array.isArray(projectState.library)?projectState.library:[];
@@ -1303,11 +1296,41 @@ function setProjectsStatus(message,type){ const el=document.getElementById('proj
 function projectHasWork(){ return projectMeta.dirty||(!projectMeta.id&&(state.external.length||state.racks.length>1||state.racks.some(r=>r.placed.length))); }
 function formatProjectDate(value){ try{return new Date(Number(value)).toLocaleString('en-GB',{dateStyle:'medium',timeStyle:'short'});}catch(e){return '';} }
 function formatProjectSize(bytes){ const n=Number(bytes)||0; return n<1024?Math.max(1,n)+' B':n<1048576?(n/1024).toFixed(1)+' KB':(n/1048576).toFixed(1)+' MB'; }
+// Client-side project store. Saved projects live in this browser's
+// localStorage instead of a server, so the app is fully static. projectRequest
+// mirrors the shape of the former /api/projects endpoint (GET list, GET ?id,
+// POST, PUT ?id, DELETE ?id) so the Projects modal keeps working unchanged.
+const PROJECTS_KEY="rackBuilder.projects.v1";
+function projectStoreRead(){ try{ const raw=localStorage.getItem(PROJECTS_KEY); const data=raw?JSON.parse(raw):null; return data&&typeof data==='object'?data:{}; }catch(e){ return {}; } }
+function projectStoreWrite(map){ localStorage.setItem(PROJECTS_KEY,JSON.stringify(map)); }
+function projectStoreUid(){ try{ return crypto.randomUUID(); }catch(e){ return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return (c==='x'?r:(r&0x3|0x8)).toString(16);}); } }
+function projectGearCount(st){ const ids=new Set(); for(const rack of (st&&st.racks)||[]){ if(!rack||typeof rack!=='object')continue; const placed=rack.placed; if(!Array.isArray(placed))continue; for(const item of placed){ if(item&&typeof item==='object'&&typeof item.libId==='string'&&!item.libId.startsWith('blank'))ids.add(item.libId); } } for(const item of (st&&st.external)||[]){ if(item&&typeof item==='object'&&typeof item.libId==='string')ids.add(item.libId); } return ids.size; }
+function projectSummaries(map){ return Object.values(map).map(p=>({id:p.id,name:p.name,rackCount:p.rackCount,gearCount:p.gearCount,sizeBytes:p.sizeBytes,createdAt:p.createdAt,updatedAt:p.updatedAt})).sort((a,b)=>Number(b.updatedAt)-Number(a.updatedAt)); }
 async function projectRequest(url,options){
-  const response=await fetch(url,options);
-  let data={}; try{data=await response.json();}catch(e){}
-  if(!response.ok)throw new Error(data.error||'The project request failed.');
-  return data;
+  const method=((options&&options.method)||'GET').toUpperCase();
+  const idMatch=String(url).match(/[?&]id=([^&]+)/); const id=idMatch?decodeURIComponent(idMatch[1]):'';
+  let body=null; if(options&&options.body){ try{ body=JSON.parse(options.body); }catch(e){ throw new Error('Invalid project data.'); } }
+  const map=projectStoreRead();
+  if(method==='GET'){
+    if(!id)return {projects:projectSummaries(map)};
+    const rec=map[id]; if(!rec)throw new Error('Project not found.');
+    return {project:{id:rec.id,name:rec.name,rackCount:rec.rackCount,gearCount:rec.gearCount,createdAt:rec.createdAt,updatedAt:rec.updatedAt,state:rec.state}};
+  }
+  if(method==='POST'||method==='PUT'){
+    const name=(body&&typeof body.name==='string')?body.name.trim().replace(/\s+/g,' ').slice(0,80):'';
+    const st=body&&body.state;
+    if(!name)throw new Error('Enter a project name.');
+    if(!st||!Array.isArray(st.racks)||!Array.isArray(st.library))throw new Error('The rack project data is incomplete.');
+    const text=JSON.stringify(st); const sizeBytes=new TextEncoder().encode(text).byteLength; const gearCount=projectGearCount(st); const rackCount=st.racks.length; const now=Date.now();
+    let rec;
+    if(method==='PUT'){ const existing=map[id]; if(!existing)throw new Error('Project not found.'); rec={id:existing.id,name,state:st,rackCount,gearCount,sizeBytes,createdAt:existing.createdAt,updatedAt:now}; }
+    else { const nid=projectStoreUid(); rec={id:nid,name,state:st,rackCount,gearCount,sizeBytes,createdAt:now,updatedAt:now}; }
+    map[rec.id]=rec;
+    try{ projectStoreWrite(map); }catch(e){ throw new Error('This browser is out of storage space. Delete a saved project (or export it to a file), then try again.'); }
+    return {project:{id:rec.id,name:rec.name,rackCount,gearCount,sizeBytes,createdAt:rec.createdAt,updatedAt:rec.updatedAt}};
+  }
+  if(method==='DELETE'){ if(!map[id])throw new Error('Project not found.'); delete map[id]; projectStoreWrite(map); return {ok:true}; }
+  throw new Error('Unsupported project request.');
 }
 function refreshAppFromState(){
   selectedCable=null; cableDrag=null; pointDrag=null; state.racks.forEach(cleanRackCables); cleanCrossCables();
@@ -1559,9 +1582,9 @@ function exportPdf(){
 }
 
 document.getElementById('btnPdf').addEventListener('click',exportPdf);
-document.getElementById('btnDiagram').addEventListener('click',()=>{ const diagram=window.open('/rack-diagram.html','rackBuilderDiagram','popup,width=1500,height=950,resizable=yes,scrollbars=yes'); if(!diagram)alert('Allow pop-ups to open the 2D connection diagram.'); });
-document.getElementById('btn3D').addEventListener('click',()=>{ const viewer=window.open('/rack-3d.html','rackBuilder3D','popup,width=1500,height=950,resizable=yes,scrollbars=yes'); if(!viewer)alert('Allow pop-ups to open the interactive 3D rack view.'); });
-document.getElementById('btnSource').addEventListener('click',()=>{const link=document.createElement('a');link.href='/genpro-rack-builder-source.zip';link.download='genpro-rack-builder-source.zip';document.body.appendChild(link);link.click();link.remove();});
+document.getElementById('btnDiagram').addEventListener('click',()=>{ const diagram=window.open('rack-diagram.html','rackBuilderDiagram','popup,width=1500,height=950,resizable=yes,scrollbars=yes'); if(!diagram)alert('Allow pop-ups to open the 2D connection diagram.'); });
+document.getElementById('btn3D').addEventListener('click',()=>{ const viewer=window.open('rack-3d.html','rackBuilder3D','popup,width=1500,height=950,resizable=yes,scrollbars=yes'); if(!viewer)alert('Allow pop-ups to open the interactive 3D rack view.'); });
+document.getElementById('btnSource').addEventListener('click',()=>{window.open('https://github.com/Genes010/Rack-Builder','_blank','noopener');});
 document.getElementById('btnImport').addEventListener('click',()=>document.getElementById('importFile').click());
 document.getElementById('importFile').addEventListener('change',e=>{ const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=()=>{ try{ const d=JSON.parse(r.result); if(!d.racks||!d.racks.length)throw 0; const permanentLibrary=mergeLibraries(state.library,d.library); state=normalizeState({...d,library:permanentLibrary}); projectMeta={id:null,name:f.name.replace(/\.rack\.json$|\.json$/i,'')||'Imported project',updatedAt:null,dirty:false}; refreshAppFromState(); save(false); queuePermanentLibrarySave(0); }catch(err){alert('Invalid file.');} }; r.readAsText(f); e.target.value=''; });
 
