@@ -8,7 +8,7 @@ name: Deploy static builder to GitHub Pages
 
 on:
   push:
-    branches: [main]
+    branches: [main, claude/rack-builder-repo-access-s2759f]
   workflow_dispatch: {}
 
 permissions:
@@ -44,6 +44,10 @@ jobs:
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
+        with:
+          # Enable GitHub Pages (workflow build type) if it isn't already,
+          # so no manual repository setting is required.
+          enablement: true
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
