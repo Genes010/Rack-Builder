@@ -338,6 +338,10 @@
       <button id="zoomReset" title="Reset zoom · Alt + mouse wheel">100%</button>
       <button id="zoomIn" title="Zoom in">+</button>
     </div>
+    <div class="zoom-controls" aria-label="History">
+      <button id="btnUndo" title="Undo · Ctrl/⌘ Z" aria-label="Undo" disabled>↶</button>
+      <button id="btnRedo" title="Redo · Ctrl/⌘ ⇧ Z" aria-label="Redo" disabled>↷</button>
+    </div>
     <div class="spacer"></div>
     <button class="ghost" id="btnPan" aria-pressed="false" title="Pan tool — drag the canvas to move around (middle-mouse drag works anytime)">✋ Pan</button>
     <button id="btnAddRack">+ Rack</button>
@@ -587,7 +591,39 @@ function save(markDirty=true){
   if(markDirty&&projectMeta.id)projectMeta.dirty=true;
   try{ localStorage.setItem(LS_KEY,JSON.stringify(state)); localStorage.setItem(PROJECT_META_KEY,JSON.stringify(projectMeta)); }catch(e){ console.warn('save',e); }
   updateHeaderProject();
+  if(!suppressHistory)recordHistory();
 }
+
+/* ---- Undo / redo history ----
+   Tracks structural changes only (library, racks, external gear, cross cables),
+   so view toggles and zoom never create history entries. Rapid successive edits
+   (e.g. typing a rack name) coalesce into a single step. */
+let undoStack=[],redoStack=[],histCurrent=null,histLastPush=0,suppressHistory=false;
+const HIST_LIMIT=120,HIST_COALESCE_MS=450;
+function histSnapshot(){ return JSON.stringify({library:state.library,racks:state.racks,external:state.external,crossCables:state.crossCables}); }
+function initHistory(){ undoStack.length=0; redoStack.length=0; histCurrent=histSnapshot(); histLastPush=0; updateHistoryButtons(); }
+function recordHistory(){
+  const cur=histSnapshot();
+  if(cur===histCurrent)return;
+  const now=Date.now();
+  if(!(undoStack.length&&!redoStack.length&&now-histLastPush<HIST_COALESCE_MS)){
+    undoStack.push(histCurrent); if(undoStack.length>HIST_LIMIT)undoStack.shift(); redoStack.length=0;
+  }
+  histCurrent=cur; histLastPush=now; updateHistoryButtons();
+}
+function applyHistorySnapshot(snap){
+  const data=JSON.parse(snap);
+  state.library=Array.isArray(data.library)?data.library:[];
+  state.racks=Array.isArray(data.racks)?data.racks:[];
+  state.external=Array.isArray(data.external)?data.external:[];
+  state.crossCables=Array.isArray(data.crossCables)?data.crossCables:[];
+  state=normalizeState(state);
+  suppressHistory=true; try{ save(); } finally { suppressHistory=false; }
+  refreshAppFromState();
+}
+function undo(){ if(!undoStack.length)return; redoStack.push(histCurrent); const snap=undoStack.pop(); histCurrent=snap; histLastPush=0; applyHistorySnapshot(snap); updateHistoryButtons(); }
+function redo(){ if(!redoStack.length)return; undoStack.push(histCurrent); const snap=redoStack.pop(); histCurrent=snap; histLastPush=0; applyHistorySnapshot(snap); updateHistoryButtons(); }
+function updateHistoryButtons(){ const u=document.getElementById('btnUndo'),r=document.getElementById('btnRedo'); if(u)u.disabled=!undoStack.length; if(r)r.disabled=!redoStack.length; }
 function load(){
   try{
     const storedMeta=JSON.parse(localStorage.getItem(PROJECT_META_KEY)||'null');
@@ -1717,9 +1753,19 @@ document.getElementById('cropApply').addEventListener('click',()=>{ try{ const r
 load(); applySidebarWidth(state.sidebarWidth,false); applyToolsState(false); document.getElementById('showProductNames').checked=state.showNames; document.getElementById('cableMode').checked=state.cableMode; document.getElementById('showCables').checked=state.showCables; updateCableStatus(); updateZoom(state.zoom,false); renderLib(); renderRacks();
 document.querySelectorAll('#viewSeg button').forEach(b=>b.classList.toggle('on',b.dataset.v===state.view));
 syncPermanentLibrary();
+initHistory();
+document.getElementById('btnUndo').addEventListener('click',undo);
+document.getElementById('btnRedo').addEventListener('click',redo);
+window.addEventListener('keydown',e=>{
+  if(!(e.ctrlKey||e.metaKey))return;
+  const typing=e.target&&e.target.closest&&e.target.closest('input,textarea,select,[contenteditable="true"]');
+  const k=(e.key||'').toLowerCase();
+  if(k==='z'){ if(typing)return; e.preventDefault(); e.shiftKey?redo():undo(); }
+  else if(k==='y'){ if(typing)return; e.preventDefault(); redo(); }
+});
 window.addEventListener('storage',event=>{
   if(event.key!==LS_KEY||!event.newValue)return;
-  try{ const incoming=JSON.parse(event.newValue); if(!incoming.racks||!incoming.library)return; state=normalizeState(incoming); if(projectMeta.id){projectMeta.dirty=true;localStorage.setItem(PROJECT_META_KEY,JSON.stringify(projectMeta));} updateHeaderProject(); renderLib(); renderRacks(); document.querySelectorAll('#viewSeg button').forEach(b=>b.classList.toggle('on',b.dataset.v===state.view)); }catch(error){ console.warn('diagram sync',error); }
+  try{ const incoming=JSON.parse(event.newValue); if(!incoming.racks||!incoming.library)return; state=normalizeState(incoming); histCurrent=histSnapshot(); if(projectMeta.id){projectMeta.dirty=true;localStorage.setItem(PROJECT_META_KEY,JSON.stringify(projectMeta));} updateHeaderProject(); renderLib(); renderRacks(); document.querySelectorAll('#viewSeg button').forEach(b=>b.classList.toggle('on',b.dataset.v===state.view)); }catch(error){ console.warn('diagram sync',error); }
 });
 </script>
 </body>
