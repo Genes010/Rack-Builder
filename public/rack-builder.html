@@ -334,9 +334,10 @@
       <button data-v="back">Rear</button>
     </div>
     <div class="zoom-controls" aria-label="Rack zoom">
-      <button id="zoomOut" title="Zoom out">−</button>
-      <button id="zoomReset" title="Reset zoom · Alt + mouse wheel">100%</button>
-      <button id="zoomIn" title="Zoom in">+</button>
+      <button id="zoomOut" title="Zoom out · −">−</button>
+      <button id="zoomReset" title="Reset zoom to 100% · 0">100%</button>
+      <button id="zoomIn" title="Zoom in · +">+</button>
+      <button id="zoomFit" title="Fit racks to the screen · F">Fit</button>
     </div>
     <div class="zoom-controls" aria-label="History">
       <button id="btnUndo" title="Undo · Ctrl/⌘ Z" aria-label="Undo" disabled>↶</button>
@@ -1494,6 +1495,22 @@ function scheduleZoomCableAlignment(){
 document.getElementById('zoomOut').addEventListener('click',()=>updateZoom(state.zoom-.1));
 document.getElementById('zoomIn').addEventListener('click',()=>updateZoom(state.zoom+.1));
 document.getElementById('zoomReset').addEventListener('click',()=>updateZoom(1));
+// Fit the actual racks + external gear to the viewport (ignores the empty
+// padding of the min-width canvas), then scroll their top-left into view.
+function fitToContent(){
+  const scrollHost=racksEl.parentElement,canvas=racksEl.querySelector('.system-canvas');
+  if(!canvas){updateZoom(1);return;}
+  const items=[...canvas.querySelectorAll('.rack-col,.external-device')];
+  if(!items.length){updateZoom(1);scrollHost.scrollTo({left:0,top:0});return;}
+  const cr=canvas.getBoundingClientRect(),z=state.zoom||1;
+  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  for(const el of items){const r=el.getBoundingClientRect();minX=Math.min(minX,(r.left-cr.left)/z);minY=Math.min(minY,(r.top-cr.top)/z);maxX=Math.max(maxX,(r.right-cr.left)/z);maxY=Math.max(maxY,(r.bottom-cr.top)/z);}
+  const pad=48,contentW=(maxX-minX)+pad*2,contentH=(maxY-minY)+pad*2;
+  const fit=Math.max(.5,Math.min(2,Math.round(Math.min(scrollHost.clientWidth/contentW,scrollHost.clientHeight/contentH)*10)/10));
+  updateZoom(fit);
+  requestAnimationFrame(()=>{scrollHost.scrollLeft=Math.max(0,(minX-pad)*fit);scrollHost.scrollTop=Math.max(0,(minY-pad)*fit);});
+}
+document.getElementById('zoomFit').addEventListener('click',fitToContent);
 document.querySelector('main').addEventListener('wheel',e=>{
   if(!e.altKey||!e.deltaY) return;
   e.preventDefault();
@@ -1762,6 +1779,14 @@ window.addEventListener('keydown',e=>{
   const k=(e.key||'').toLowerCase();
   if(k==='z'){ if(typing)return; e.preventDefault(); e.shiftKey?redo():undo(); }
   else if(k==='y'){ if(typing)return; e.preventDefault(); redo(); }
+});
+window.addEventListener('keydown',e=>{
+  if(e.ctrlKey||e.metaKey||e.altKey)return;
+  if(e.target&&e.target.closest&&e.target.closest('input,textarea,select,[contenteditable="true"]'))return;
+  if(e.key==='+'||e.key==='='){ e.preventDefault(); updateZoom(state.zoom+.1); }
+  else if(e.key==='-'||e.key==='_'){ e.preventDefault(); updateZoom(state.zoom-.1); }
+  else if(e.key==='0'){ e.preventDefault(); updateZoom(1); }
+  else if(e.key==='f'||e.key==='F'){ e.preventDefault(); fitToContent(); }
 });
 window.addEventListener('storage',event=>{
   if(event.key!==LS_KEY||!event.newValue)return;
