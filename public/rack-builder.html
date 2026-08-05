@@ -333,7 +333,6 @@
     </div>
     <div class="spacer"></div>
     <button id="btnAddRack">+ Rack</button>
-    <button class="primary" id="btnAdd">+ Gear</button>
     <button class="ghost" id="btnDiagram" title="Open editable connection diagram in a new window">Diagram</button>
     <button class="ghost" id="btn3D" title="Inspect rack and equipment depth in an interactive 3D view">3D</button>
     <button class="ghost" id="btnExport">Export</button>
@@ -1082,7 +1081,6 @@ function paintPhoto(slot){
   const button=document.querySelector('.btnConnectors[data-slot="'+slot+'"]'),count=draftConnectors[slot].length;
   if(button)button.textContent='Connectors'+(count?' ('+count+')':'');
 }
-document.getElementById('btnAdd').addEventListener('click',()=>openModal(null));
 document.getElementById('btnAdd2').addEventListener('click',()=>openModal(null));
 document.getElementById('fPlacement').addEventListener('change',applyPlacementMode);
 document.getElementById('btnCancel').addEventListener('click',closeModal);
