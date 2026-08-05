@@ -56,6 +56,8 @@
   aside .head small{display:block;margin-top:2px;color:#667080;font-size:9px;letter-spacing:.2px}
   aside .head small.syncing{color:#f0b64d}aside .head small.saved{color:var(--ok)}aside .head small.error{color:var(--bad)}
   .blank-tools{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px 14px;border-bottom:1px solid var(--line);background:#13151a}
+  .lib-search{padding:10px 14px 2px}
+  .lib-search input{padding:6px 9px;font-size:12px}
   .blank-tools .chip{justify-content:center;padding:8px 7px}
   .lib{overflow:auto;padding:10px;display:flex;flex-direction:column;gap:8px;flex:1}
   .card{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:var(--gear-card-pad);display:flex;gap:var(--gear-card-gap);align-items:center;cursor:grab;user-select:none;touch-action:none}
@@ -360,6 +362,7 @@
       <span class="chip" data-blank="1">▭ Blank 1U</span>
       <span class="chip" data-blank="2">▭ Blank 2U</span>
     </div>
+    <div class="lib-search" id="libSearchRow"><input type="search" id="libSearch" placeholder="Search gear…" autocomplete="off" aria-label="Search gear library"></div>
     <div class="lib" id="lib"></div>
   </aside>
   <div class="sidebar-resizer" id="sidebarResizer" role="separator" aria-label="Resize Library panel" aria-orientation="vertical" tabindex="0" title="Drag to resize the Library"></div>
@@ -969,10 +972,15 @@ function renderExternalWorkspace(canvasWidth,view){
   return wrap;
 }
 
+let libFilter='';
 function renderLib(){
   const lib=document.getElementById('lib'); lib.innerHTML='';
+  const searchRow=document.getElementById('libSearchRow'); if(searchRow)searchRow.style.display=state.library.length?'':'none';
   if(!state.library.length){ lib.innerHTML='<div class="empty">No gear yet.<br>Click “+ Gear”.</div>'; return; }
-  for(const g of state.library){
+  const q=(libFilter||'').trim().toLowerCase();
+  const items=q?state.library.filter(g=>{const ext=g.placementType==='external';return (g.name+' '+(ext?'external':g.he+'u')+' '+(g.width||'')+' '+(g.mount||'')).toLowerCase().includes(q);}):state.library;
+  if(!items.length){ lib.innerHTML='<div class="empty">No gear matches “'+escapeHtml(libFilter.trim())+'”.</div>'; return; }
+  for(const g of items){
     const thumb=g.img||g.imgBack;
     const external=g.placementType==='external';
     const mountTag=g.mount==='front'?' · front':g.mount==='rear'?' · rear':(g.imgBack?' · ⤢':'');
@@ -1773,6 +1781,7 @@ syncPermanentLibrary();
 initHistory();
 document.getElementById('btnUndo').addEventListener('click',undo);
 document.getElementById('btnRedo').addEventListener('click',redo);
+document.getElementById('libSearch').addEventListener('input',e=>{ libFilter=e.target.value; renderLib(); });
 window.addEventListener('keydown',e=>{
   if(!(e.ctrlKey||e.metaKey))return;
   const typing=e.target&&e.target.closest&&e.target.closest('input,textarea,select,[contenteditable="true"]');
