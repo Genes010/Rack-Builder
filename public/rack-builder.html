@@ -20,6 +20,7 @@
   body{background:var(--bg);color:var(--txt);font:14px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;overflow:hidden}
   button{font:inherit;color:var(--txt);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:8px 12px;cursor:pointer}
   button:hover{border-color:#3a3f4b}
+  button:not(.ghost):not(.icon-btn):hover{background:#262b34}
   button.primary{background:var(--accent2);border-color:var(--accent)}
   button.primary:hover{background:var(--accent)}
   button.ghost{background:transparent}
@@ -27,7 +28,9 @@
   header .icon-btn:hover{color:var(--txt);border-color:#3a414e}
   header .icon-btn svg{width:17px;height:17px;display:block;pointer-events:none}
   input,select{font:inherit;color:var(--txt);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:7px 9px;width:100%}
-  input:focus,select:focus{outline:none;border-color:var(--accent)}
+  input:focus,select:focus{border-color:var(--accent)}
+  button:focus-visible,input:focus-visible,select:focus-visible,a:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+  .seg button:focus-visible,.zoom-controls button:focus-visible{outline-offset:-2px}
   label{display:block;font-size:12px;color:var(--muted);margin:0 0 4px}
   .row{display:flex;gap:8px;align-items:center}
   .app{display:grid;grid-template-columns:var(--sidebar-w) minmax(0,1fr) var(--tools-w);grid-template-rows:56px 1fr;height:100vh}
@@ -79,17 +82,17 @@
   .tool-head{height:52px;flex:none;display:flex;align-items:center;gap:8px;padding:0 10px 0 14px;border-bottom:1px solid var(--line)}
   .tool-head h2{flex:1;min-width:0;margin:0;color:var(--muted);font-size:12px;font-weight:650;letter-spacing:.6px;text-transform:uppercase;white-space:nowrap}
   .tool-toggle{width:32px;height:32px;flex:none;padding:0;display:flex;align-items:center;justify-content:center;background:transparent;font-size:20px;line-height:1}
-  .tool-content{padding:12px 10px}
-  .tool-option{display:flex;align-items:flex-start;gap:10px;margin:0;padding:11px;border:1px solid var(--line);border-radius:9px;background:var(--panel2);cursor:pointer}
-  .tool-option:hover{border-color:#3a3f4b}
+  .tool-content{padding:16px 13px;display:flex;flex-direction:column;gap:11px}
+  .tool-option{display:flex;align-items:flex-start;gap:11px;margin:0;padding:12px 13px;border:1px solid var(--line);border-radius:9px;background:var(--panel2);cursor:pointer;transition:border-color .12s,background .12s}
+  .tool-option:hover{border-color:#3a3f4b;background:#242932}
   .tool-option input[type="checkbox"]{width:17px;height:17px;flex:none;margin:2px 0 0;padding:0;accent-color:var(--accent);cursor:pointer}
   .tool-option span{min-width:0;color:var(--txt);font-size:13px}
   .tool-option b{display:block;font-weight:600}
-  .tool-option small{display:block;margin-top:2px;color:var(--muted);font-size:11px;line-height:1.35}
-  .tool-section-title{margin:16px 2px 7px;color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.7px;text-transform:uppercase}
-  .cable-controls{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+  .tool-option small{display:block;margin-top:3px;color:var(--muted);font-size:11px;line-height:1.4}
+  .tool-section-title{margin:6px 2px -3px;color:var(--muted);font-size:10px;font-weight:700;letter-spacing:.7px;text-transform:uppercase}
+  .cable-controls{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:0}
   .cable-controls button{min-width:0;padding:7px 6px;font-size:11px}
-  .cable-status{min-height:32px;margin-top:8px;padding:8px;border-radius:7px;background:#101217;color:var(--muted);font-size:10px;line-height:1.35}
+  .cable-status{min-height:32px;margin-top:0;padding:9px 10px;border-radius:7px;background:#101217;color:var(--muted);font-size:10px;line-height:1.4}
   .cable-status.active{color:#cfe0ff;border:1px solid rgba(76,141,255,.4)}
   .right-toolbar.collapsed .tool-head{padding:0 6px;justify-content:center}
   .right-toolbar.collapsed .tool-head h2,.right-toolbar.collapsed .tool-content{display:none}
@@ -387,7 +390,7 @@
         <input type="checkbox" id="cableMode">
         <span><b>Cabling mode</b><small>Drag from an output to a matching input.</small></span>
       </label>
-      <label class="tool-option" style="margin-top:8px">
+      <label class="tool-option">
         <input type="checkbox" id="showCables" checked>
         <span><b>Show cable paths</b><small>Display saved cables on the active rack side.</small></span>
       </label>
