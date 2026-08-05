@@ -1,0 +1,55 @@
+name: Deploy static builder to GitHub Pages
+
+# Publishes the static Rack Builder (the files under public/) to GitHub Pages.
+# The builder, connection diagram, and 3D view are self-contained static pages
+# that store projects and the gear library in the browser, so no build or
+# server is required. Server-only features (gear search, image proxy) are
+# inactive on this static deployment.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Allow one concurrent deployment; newer runs supersede in-progress ones.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Assemble static site
+        run: |
+          set -euo pipefail
+          rm -rf _site
+          mkdir -p _site
+          cp -R public/. _site/
+          # The builder is the landing page.
+          cp _site/rack-builder.html _site/index.html
+          # Disable Jekyll processing so files are served verbatim.
+          touch _site/.nojekyll
+
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
