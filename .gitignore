@@ -1,0 +1,52 @@
+# Dependencies
+/node_modules
+.pnp
+.pnp.*
+
+# Build output / artifacts
+/dist
+/.next
+/out
+/build/.cache
+
+# Vinext / Vite / Cloudflare runtime state (disposable, regenerated on demand)
+/.vinext
+/.vite
+/.wrangler
+/.sites-runtime
+/.mf
+
+# Local hosting bindings — platform-injected, environment-specific.
+# Commit .openai/hosting.json.example instead and create the real file locally
+# (see README "Local Development").
+/.openai/hosting.json
+
+# Local database files (Miniflare D1 / SQLite)
+*.sqlite
+*.sqlite-journal
+*.db
+
+# Environment variables and secrets
+.env
+.env.*
+!.env.example
+.dev.vars
+.dev.vars.*
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Testing / coverage
+/coverage
+
+# Editor / OS cruft
+.DS_Store
+Thumbs.db
+.idea
+.vscode/*
+!.vscode/extensions.json
+*.swp
+*.swo

@@ -9,6 +9,36 @@ Drizzle support.
 - Node.js `>=22.13.0`
 - Linux with `flock`, `curl`, and GNU `timeout`
 
+## Local Development
+
+Getting the app running locally is a three-step process:
+
+```bash
+# 1. Install dependencies
+npm install
+
+# 2. Create the local hosting-bindings file from the committed example.
+#    This declares the Cloudflare D1 and R2 binding names the app expects
+#    (DB and BUCKET). The real file is git-ignored because the Sites hosting
+#    platform injects it in deployed environments.
+cp .openai/hosting.json.example .openai/hosting.json
+
+# 3. Start the dev server (Vite + Vinext + Miniflare)
+npm run dev
+```
+
+The dev server listens on `http://localhost:5173/`. The Next.js shell embeds the
+builder UI (`public/rack-builder.html`) in an iframe; the API routes under
+`app/api/` are backed by a local Miniflare D1 database (migrations in `drizzle/`
+are applied automatically) and an R2 bucket.
+
+> **Note:** `vite.config.ts` imports `.openai/hosting.json` at startup, so the
+> dev server fails to boot until step 2 is done. If you see
+> `Could not resolve './.openai/hosting.json'`, you skipped it.
+
+To change the schema, edit `db/schema.ts` and run `npm run db:generate` to emit a
+new Drizzle migration.
+
 ## Sites Lifecycle
 
 The Sites lifecycle CLI runs the locked dependency install before returning this checkout. Edit the source under `app/`, then checkpoint when a coherent milestone is ready to inspect or share. The remote Sites builder runs `npm run build` against the pushed commit. Do not repeat install or build as a normal pre-checkpoint step.
