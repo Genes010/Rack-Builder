@@ -96,6 +96,24 @@
   .cable-status.active{color:#cfe0ff;border:1px solid rgba(76,141,255,.4)}
   .right-toolbar.collapsed .tool-head{padding:0 6px;justify-content:center}
   .right-toolbar.collapsed .tool-head h2,.right-toolbar.collapsed .tool-content{display:none}
+  .rack-col.selected .rack-flightcase{box-shadow:0 0 0 2px var(--accent),0 24px 58px rgba(0,0,0,.75),inset 0 0 0 2px #272b2f}
+  #rackContent{display:flex;flex-direction:column;gap:11px;padding:16px 13px}
+  .rack-panel-name{font-size:16px;font-weight:650;color:#fff;margin:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rp-field{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .rp-field label{font-size:12.5px;color:var(--muted)}
+  .rp-inp{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);border-radius:7px;background:#0e1116;padding:0 9px 0 0}
+  .rp-inp input{width:74px;border:0;background:transparent;padding:6px 4px 6px 8px;text-align:right;font-variant-numeric:tabular-nums}
+  .rp-inp input:focus{outline:none}
+  .rp-inp .u{font-size:11px;color:#6d7686}
+  .rp-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .rp-stat{border:1px solid var(--line);border-radius:8px;background:#0f1217;padding:8px 10px}
+  .rp-stat .lab{font-size:9.5px;letter-spacing:.06em;text-transform:uppercase;color:#6d7686}
+  .rp-stat .val{font-size:15px;font-weight:650;color:#eef1f6;margin-top:2px;font-variant-numeric:tabular-nums}
+  .rp-stat .val small{font-size:11px;color:var(--muted);font-weight:500}
+  .rp-stat.over{border-color:rgba(240,182,77,.5);background:rgba(240,182,77,.09)}
+  .rp-stat.over .val{color:#f0b64d}
+  .rp-remove{width:100%;margin-top:2px;border:1px solid rgba(255,107,107,.4);color:#ff9a9a;background:rgba(255,107,107,.08);border-radius:8px;padding:9px;font-size:12.5px;font-family:inherit}
+  .rp-remove:hover{background:rgba(255,107,107,.16);border-color:rgba(255,107,107,.6)}
   .racks{display:block;min-width:max-content}
   main.pan-tool{cursor:grab}
   main.pan-tool *{cursor:grab!important}
@@ -126,7 +144,7 @@
   .external-drop-hint{position:absolute;border:2px dashed var(--ok);border-radius:9px;background:rgba(62,207,142,.14);pointer-events:none;z-index:20}
   .rack-col{position:absolute;padding:0 8px 4px}
   .rack-head{display:flex;align-items:center;gap:6px;margin-bottom:8px}
-  .rack-head input.rn{width:120px;padding:5px 8px;font-weight:600}
+  .rack-head input.rn{width:200px;padding:6px 9px;font-weight:600}
   .rack-head input.rhe{width:56px;padding:5px 6px;text-align:center}
   .rack-head input.rdepth{width:72px;padding:5px 6px;text-align:center}
   .rack-head .lbl{color:var(--muted);font-size:12px}
@@ -377,10 +395,10 @@
 
   <section class="right-toolbar" id="rightToolbar" aria-label="View options">
     <div class="tool-head">
-      <h2>View options</h2>
-      <button class="tool-toggle" id="toolsToggle" type="button" aria-expanded="true" title="Collapse view options">›</button>
+      <h2 id="toolHeadTitle">View options</h2>
+      <button class="tool-toggle" id="toolsToggle" type="button" aria-expanded="true" title="Collapse panel">›</button>
     </div>
-    <div class="tool-content">
+    <div class="tool-content" id="viewContent">
       <label class="tool-option">
         <input type="checkbox" id="showProductNames" checked>
         <span><b>Show product names</b><small>Show labels on rack and external equipment.</small></span>
@@ -397,6 +415,7 @@
       <div class="cable-status" id="cableStatus">Enable Cabling mode, then drag an output to an input.</div>
       <div class="cable-controls"><button type="button" class="ghost" id="cancelCable" disabled>Cancel</button><button type="button" class="ghost" id="deleteCable" disabled>Delete selected</button><button type="button" class="ghost" id="clearCables" style="grid-column:1/3">Clear visible</button></div>
     </div>
+    <div class="tool-content" id="rackContent" style="display:none"></div>
   </section>
 </div>
 
@@ -883,24 +902,18 @@ function renderRacks(){
   const view=state.view;
   const metrics=rackLayoutMetrics(),canvasWidth=metrics.width;
   const canvas=document.createElement('div');canvas.className='system-canvas';canvas.style.width=canvasWidth+'px';
+  canvas.addEventListener('click',e=>{ if(!e.target.closest('.rack-col'))selectRack(null); });
   const rackRow=document.createElement('div');rackRow.className='rack-row';rackRow.style.width=canvasWidth+'px';rackRow.style.height=metrics.height+'px';
   canvas.appendChild(renderExternalWorkspace(metrics.logicalWidth,view));canvas.appendChild(rackRow);racksEl.appendChild(canvas);
   for(const rack of state.racks){
     const col=document.createElement('div'); col.className='rack-col';col.style.left=(rack.layoutX*state.zoom)+'px';col.style.top=(rack.layoutY*state.zoom+34)+'px';col.dataset.rackId=rack.id;
     const head=document.createElement('div'); head.className='rack-head';
-    head.innerHTML='<button type="button" class="rack-move-handle" title="Drag to position this rack">⠿</button><input class="rn" value="'+escapeAttr(rack.name)+'"><span class="lbl">U</span><input class="rhe" type="number" min="1" max="60" value="'+rack.he+'"><span class="lbl">Depth</span><input class="rdepth" type="number" min="200" max="1600" step="10" value="'+rack.depth+'"><span class="lbl">mm</span><button class="rmrack" title="Remove rack">✕</button>';
+    head.innerHTML='<button type="button" class="rack-move-handle" title="Drag to position this rack">⠿</button><input class="rn" value="'+escapeAttr(rack.name)+'" title="Rack name" aria-label="Rack name">';
     head.querySelector('.rack-move-handle').addEventListener('pointerdown',event=>startRackLayoutDrag(event,rack,col,rackRow,canvas));
-    head.querySelector('.rn').addEventListener('input',e=>{ rack.name=e.target.value; save(); });
-    head.querySelector('.rhe').addEventListener('change',e=>{
-      rack.he=Math.max(1,Math.min(60,parseInt(e.target.value)||1)); e.target.value=rack.he;
-      rack.placed=rack.placed.filter(p=>{const g=libById(p.libId);return g&&p.top+g.he<=rack.he;}); cleanRackCables(rack); cleanCrossCables();
-      save(); renderRacks();
-    });
-    head.querySelector('.rdepth').addEventListener('change',e=>{ rack.depth=Math.max(200,Math.min(1600,parseInt(e.target.value)||600)); e.target.value=rack.depth; save(); renderRacks(); });
-    head.querySelector('.rmrack').addEventListener('click',()=>{
-      if(state.racks.length<=1){ alert('At least one rack must remain.'); return; }
-      if(confirm('Remove “'+rack.name+'”?')){ state.racks=state.racks.filter(r=>r.id!==rack.id);cleanCrossCables();save();renderRacks(); }
-    });
+    const rnInput=head.querySelector('.rn');
+    rnInput.addEventListener('input',e=>{ rack.name=e.target.value; save(); if(selectedRackId===rack.id){const el=document.querySelector('#rackContent .rack-panel-name'); if(el){el.textContent=e.target.value||'Rack';el.title=e.target.value;}} });
+    rnInput.addEventListener('focus',()=>selectRack(rack.id));
+    col.addEventListener('click',e=>{ if(e.target.closest('button,input,.rack-port'))return; selectRack(rack.id); });
     col.appendChild(head);
 
     const rk=document.createElement('div'); rk.className='rack'+(view==='back'?' back':'');
@@ -942,16 +955,63 @@ function renderRacks(){
     flightcase.innerHTML='<span class="rack-case-side left"></span><span class="rack-case-side right"></span><span class="rack-corner tl"></span><span class="rack-corner tr"></span><span class="rack-corner bl"></span><span class="rack-corner br"></span><span class="rack-rivets"></span><span class="rack-shock left top"></span><span class="rack-shock left bottom"></span><span class="rack-shock right top"></span><span class="rack-shock right bottom"></span>';
     flightcase.appendChild(rk);const rackScale=document.createElement('div');rackScale.className='rack-scale-shell';rackScale.appendChild(flightcase);col.appendChild(rackScale);
 
-    const used=occupied(rack,view,null).size/2;
-    let weight=0,depth=0;
-    for(const p of rack.placed){ const g=libById(p.libId); if(!g) continue; weight+=(+g.weight||0); depth=Math.max(depth,+g.depth||0); }
-    const free=rack.he-used;
-    const st=document.createElement('div'); st.className='rack-stats';
-    st.innerHTML='<span>'+(view==='back'?'Rear':'Front')+': <b class="'+(used>rack.he?'over':'')+'">'+used.toLocaleString('en-US')+'</b>/'+rack.he+'U · free <b>'+(free<0?0:free).toLocaleString('en-US')+'</b></span><span>⚖ <b>'+(Math.round(weight*10)/10)+'</b> kg</span><span>Rack depth <b>'+rack.depth+'</b> mm</span>'+(depth?'<span>Max gear <b class="'+(depth>rack.depth?'over':'')+'">'+depth+'</b> mm</span>':'');
-    col.appendChild(st);
     rackRow.appendChild(col);const naturalRackWidth=flightcase.offsetWidth||574,naturalRackHeight=flightcase.offsetHeight||(rack.he*U+117);rackScale.style.width=Math.ceil(naturalRackWidth*state.zoom)+'px';rackScale.style.height=Math.ceil(naturalRackHeight*state.zoom)+'px';
   }
   renderCrossCableLayer(canvas,view);
+  renderRightPanel();
+  document.querySelectorAll('.rack-col').forEach(c=>c.classList.toggle('selected',c.dataset.rackId===selectedRackId));
+}
+
+/* ---- Rack parameters panel (right side, contextual) ---- */
+let selectedRackId=null;
+function selectRack(id){
+  selectedRackId=id;
+  document.querySelectorAll('.rack-col').forEach(c=>c.classList.toggle('selected',c.dataset.rackId===id));
+  renderRightPanel();
+}
+function renderRightPanel(){
+  const title=document.getElementById('toolHeadTitle'),viewC=document.getElementById('viewContent'),rackC=document.getElementById('rackContent');
+  if(!title||!viewC||!rackC)return;
+  const rack=selectedRackId?state.racks.find(r=>r.id===selectedRackId):null;
+  if(selectedRackId&&!rack)selectedRackId=null;
+  if(rack){
+    title.textContent='Rack';
+    viewC.style.display='none'; rackC.style.display='';
+    renderRackParams(rack,rackC);
+  }else{
+    title.textContent='View options';
+    rackC.style.display='none'; viewC.style.display='';
+  }
+}
+function renderRackParams(rack,container){
+  const view=state.view,side=view==='back'?'Rear':'Front';
+  const used=occupied(rack,view,null).size/2,free=Math.max(0,rack.he-used);
+  let weight=0,depth=0;
+  for(const p of rack.placed){ const g=libById(p.libId); if(!g)continue; weight+=(+g.weight||0); depth=Math.max(depth,+g.depth||0); }
+  const overU=used>rack.he,overDepth=depth>rack.depth;
+  container.innerHTML=
+    '<div class="rack-panel-name" title="'+escapeAttr(rack.name)+'">'+escapeHtml(rack.name||'Rack')+'</div>'
+   +'<div class="tool-section-title">Dimensions</div>'
+   +'<div class="rp-field"><label for="rpHe">Height</label><span class="rp-inp"><input id="rpHe" type="number" min="1" max="60" value="'+rack.he+'"><span class="u">U</span></span></div>'
+   +'<div class="rp-field"><label for="rpDepth">Depth</label><span class="rp-inp"><input id="rpDepth" type="number" min="200" max="1600" step="10" value="'+rack.depth+'"><span class="u">mm</span></span></div>'
+   +'<div class="tool-section-title">Capacity · '+side+'</div>'
+   +'<div class="rp-stats">'
+     +'<div class="rp-stat'+(overU?' over':'')+'"><div class="lab">Used</div><div class="val">'+used+'<small>/'+rack.he+' U</small></div></div>'
+     +'<div class="rp-stat"><div class="lab">Free</div><div class="val">'+free+'<small> U</small></div></div>'
+     +'<div class="rp-stat"><div class="lab">Weight</div><div class="val">'+(Math.round(weight*10)/10)+'<small> kg</small></div></div>'
+     +'<div class="rp-stat'+(overDepth?' over':'')+'"><div class="lab">Max gear</div><div class="val">'+(depth||0)+'<small>/'+rack.depth+' mm</small></div></div>'
+   +'</div>'
+   +'<button type="button" class="rp-remove" id="rpRemove">Remove rack</button>';
+  container.querySelector('#rpHe').addEventListener('change',e=>{
+    rack.he=Math.max(1,Math.min(60,parseInt(e.target.value)||1)); e.target.value=rack.he;
+    rack.placed=rack.placed.filter(p=>{const g=libById(p.libId);return g&&p.top+g.he<=rack.he;}); cleanRackCables(rack); cleanCrossCables();
+    save(); renderRacks();
+  });
+  container.querySelector('#rpDepth').addEventListener('change',e=>{ rack.depth=Math.max(200,Math.min(1600,parseInt(e.target.value)||600)); e.target.value=rack.depth; save(); renderRacks(); });
+  container.querySelector('#rpRemove').addEventListener('click',()=>{
+    if(state.racks.length<=1){ alert('At least one rack must remain.'); return; }
+    if(confirm('Remove “'+rack.name+'”?')){ state.racks=state.racks.filter(r=>r.id!==rack.id); selectedRackId=null; cleanCrossCables(); save(); renderRacks(); }
+  });
 }
 
 function externalDrawSize(g){
@@ -1698,7 +1758,7 @@ function endPan(){if(!panState)return;window.removeEventListener('pointermove',m
 panMain.addEventListener('pointerdown',startPan,true);
 panMain.addEventListener('auxclick',e=>{if(e.button===1)e.preventDefault();});
 document.getElementById('btnPan').addEventListener('click',()=>setPanTool(!panTool));
-window.addEventListener('keydown',e=>{if(e.key==='Escape'&&panTool&&!(e.target&&e.target.closest&&e.target.closest('input,textarea,select')))setPanTool(false);});
+window.addEventListener('keydown',e=>{if(e.key!=='Escape')return;const typing=e.target&&e.target.closest&&e.target.closest('input,textarea,select');if(typing){if(document.activeElement)document.activeElement.blur();return;}if(panTool){setPanTool(false);return;}if(selectedRackId)selectRack(null);});
 document.getElementById('btnImport').addEventListener('click',()=>document.getElementById('importFile').click());
 document.getElementById('importFile').addEventListener('change',e=>{ const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=()=>{ try{ const d=JSON.parse(r.result); if(!d.racks||!d.racks.length)throw 0; const permanentLibrary=mergeLibraries(state.library,d.library); state=normalizeState({...d,library:permanentLibrary}); projectMeta={id:null,name:f.name.replace(/\.rack\.json$|\.json$/i,'')||'Imported project',updatedAt:null,dirty:false}; refreshAppFromState(); save(false); queuePermanentLibrarySave(0); }catch(err){alert('Invalid file.');} }; r.readAsText(f); e.target.value=''; });
 
