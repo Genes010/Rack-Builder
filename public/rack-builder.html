@@ -3,7 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="copyright" content="© 2026 Genes Media. All rights reserved.">
 <title>Rack Builder</title>
+<!-- © 2026 Genes Media. All rights reserved. Proprietary software - see LICENSE. -->
+
 <style>
   :root{
     --bg:#0e0f12; --panel:#16181d; --panel2:#1d2027; --line:#2a2e37;
@@ -89,6 +92,7 @@
   main.pan-tool{cursor:grab}
   main.pan-tool *{cursor:grab!important}
   body.panning,body.panning *{cursor:grabbing!important;user-select:none!important}
+  .app-copyright{position:fixed;right:12px;bottom:8px;z-index:40;font-size:10px;line-height:1;color:var(--muted);opacity:.5;pointer-events:none;user-select:none;letter-spacing:.2px;text-shadow:0 1px 2px rgba(0,0,0,.6)}
   .system-canvas{position:relative;padding:0 8px 52px;min-height:1200px}
   .rack-row{position:relative;display:block;padding-top:34px;border-top:1px dashed rgba(125,142,168,.2);background-image:linear-gradient(rgba(125,142,168,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(125,142,168,.045) 1px,transparent 1px);background-size:calc(40px * var(--rack-zoom,1)) calc(40px * var(--rack-zoom,1))}
   .rack-row:before{content:'RACKS';position:absolute;margin-top:-27px;color:#616a7a;font-size:10px;font-weight:700;letter-spacing:.8px}
@@ -381,6 +385,8 @@
     </div>
   </section>
 </div>
+
+<div class="app-copyright">© 2026 Genes Media — All rights reserved</div>
 
 <div class="projects-bg" id="projectsBg" role="dialog" aria-modal="true" aria-labelledby="projectsTitle">
   <div class="projects-box">
