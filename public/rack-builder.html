@@ -512,12 +512,37 @@ const freshState=()=>({library:[],racks:[],external:[],externalCables:[],crossCa
 let state=freshState();
 let projectMeta={id:null,name:'Unsaved project',updatedAt:null,dirty:false};
 
-function scaleCrossCablePointsToZoom(cable,nextZoom){
-  const targetZoom=Math.max(.5,Math.min(2,Number(nextZoom)||1)),sourceZoom=Math.max(.5,Math.min(2,Number(cable.pointsZoom)||1)),ratio=targetZoom/sourceZoom;
-  let changed=cable.pointsZoom!==targetZoom;
-  if(Math.abs(ratio-1)>=.0001&&Array.isArray(cable.points)&&cable.points.length){cable.points=cable.points.map(point=>({x:(Number(point.x)||0)*ratio,y:(Number(point.y)||0)*ratio}));changed=true;}
-  cable.pointsZoom=targetZoom;
-  return changed;
+// Cross-cable waypoints are stored relative to the cable's two endpoints as
+// {t,s}: t is the fraction along the a->b vector, s is the perpendicular offset
+// (both normalised by the endpoint distance). This is invariant to zoom and to
+// the constant layout offsets that scale differently from the endpoints, so
+// waypoints track their endpoints at every zoom level. Endpoints are always
+// recomputed from the live DOM, so reconstruction is exact.
+function crossPointToParam(a,b,p){
+  const vx=b.x-a.x,vy=b.y-a.y,len2=vx*vx+vy*vy;
+  if(len2<1e-6)return{t:.5,s:0};
+  const dx=p.x-a.x,dy=p.y-a.y;
+  return{t:(dx*vx+dy*vy)/len2,s:(dy*vx-dx*vy)/len2};
+}
+function crossParamToPoint(a,b,param){
+  const vx=b.x-a.x,vy=b.y-a.y,t=Number(param&&param.t)||0,s=Number(param&&param.s)||0;
+  return{x:a.x+t*vx-s*vy,y:a.y+t*vy+s*vx};
+}
+// Return waypoint screen positions, migrating any legacy absolute {x,y} points
+// (stored at cable.pointsZoom) to the {t,s} form in place on first render.
+function crossCableScreenPoints(cable,a,b){
+  if(!Array.isArray(cable.points))cable.points=[];
+  let migrated=false;
+  const screen=cable.points.map(p=>{
+    if(p&&typeof p.t==='number'&&typeof p.s==='number')return crossParamToPoint(a,b,p);
+    const pz=Math.max(.5,Math.min(2,Number(cable.pointsZoom)||state.zoom||1)),ratio=(state.zoom||1)/pz;
+    const legacy={x:(Number(p&&p.x)||0)*ratio,y:(Number(p&&p.y)||0)*ratio},param=crossPointToParam(a,b,legacy);
+    if(p&&typeof p==='object'){p.t=param.t;p.s=param.s;delete p.x;delete p.y;}
+    migrated=true;
+    return crossParamToPoint(a,b,param);
+  });
+  if(migrated)delete cable.pointsZoom;
+  return screen;
 }
 
 function normalizeState(input){
@@ -539,7 +564,7 @@ function normalizeState(input){
   next.external=next.external.filter(p=>p&&p.uid&&p.libId).map(p=>({...p,x:Math.max(0,Number(p.x)||40),y:Math.max(0,Math.min(EXTERNAL_H-70,Number(p.y)||40))}));
   const externalIds=new Set(next.external.map(p=>p.uid)),allIds=new Set([...externalIds,...next.racks.flatMap(r=>r.placed.map(p=>p.uid))]);
   next.externalCables.forEach(c=>{if(c&&c.id&&!next.crossCables.some(x=>x.id===c.id))next.crossCables.push(c);});next.externalCables=[];
-  next.crossCables=next.crossCables.filter(c=>c&&c.from&&c.to&&allIds.has(c.from.uid)&&allIds.has(c.to.uid)).map(c=>{const normalized={...c,points:Array.isArray(c.points)?c.points:[]};scaleCrossCablePointsToZoom(normalized,next.zoom);return normalized;});
+  next.crossCables=next.crossCables.filter(c=>c&&c.from&&c.to&&allIds.has(c.from.uid)&&allIds.has(c.to.uid)).map(c=>({...c,points:Array.isArray(c.points)?c.points:[]}));
   return next;
 }
 function updateHeaderProject(){
@@ -719,13 +744,13 @@ function crossCableEndpoint(canvas,ref){const port=[...canvas.querySelectorAll('
 function renderCrossCableLayer(canvas,view){
   if(!state.showCables&&!state.cableMode)return;const cables=state.showCables?(state.crossCables||[]).filter(c=>c.view===view):[];if(!cables.length&&!state.cableMode)return;
   const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('class','cable-layer cross-cable-layer');svg.setAttribute('width',String(canvas.offsetWidth));svg.setAttribute('height',String(canvas.offsetHeight));svg.setAttribute('viewBox','0 0 '+canvas.offsetWidth+' '+canvas.offsetHeight);if(selectedCableInfo())svg.classList.add('has-selection');
-  cables.forEach(c=>{const a=crossCableEndpoint(canvas,c.from),b=crossCableEndpoint(canvas,c.to);if(!a||!b)return;if(!Array.isArray(c.points))c.points=[];const selected=!!(selectedCable&&selectedCable.rackId==='cross'&&selectedCable.cableId===c.id),d=cablePathD(a,c.points,b),color=c.color||cableColor(c.type);
+  cables.forEach(c=>{const a=crossCableEndpoint(canvas,c.from),b=crossCableEndpoint(canvas,c.to);if(!a||!b)return;if(!Array.isArray(c.points))c.points=[];const screen=crossCableScreenPoints(c,a,b);const selected=!!(selectedCable&&selectedCable.rackId==='cross'&&selectedCable.cableId===c.id),d=cablePathD(a,screen,b),color=c.color||cableColor(c.type);
     const path=document.createElementNS('http://www.w3.org/2000/svg','path');path.setAttribute('class','cable-path'+(selected?' selected':''));path.setAttribute('d',d);path.setAttribute('stroke',color);svg.appendChild(path);const hit=document.createElementNS('http://www.w3.org/2000/svg','path');hit.setAttribute('class','cable-hit');hit.setAttribute('d',d);hit.addEventListener('click',event=>{event.stopPropagation();selectedCable=selected?null:{rackId:'cross',cableId:c.id};updateCableStatus();renderRacks();});svg.appendChild(hit);
-    if(state.cableMode&&selected){c.points.forEach((point,index)=>{const handle=document.createElementNS('http://www.w3.org/2000/svg','circle');handle.setAttribute('class','cable-point');handle.setAttribute('cx',String(point.x));handle.setAttribute('cy',String(point.y));handle.setAttribute('r','6');handle.setAttribute('fill',color);handle.addEventListener('pointerdown',event=>startCrossPointDrag(event,canvas,c,index,path,hit,handle,a,b));svg.appendChild(handle);});const all=[a,...c.points,b];for(let index=0;index<all.length-1;index++){const add=document.createElementNS('http://www.w3.org/2000/svg','circle');add.setAttribute('class','cable-addpoint');add.setAttribute('cx',String((all[index].x+all[index+1].x)/2));add.setAttribute('cy',String((all[index].y+all[index+1].y)/2));add.setAttribute('r','4.5');add.addEventListener('click',event=>{event.stopPropagation();c.points.splice(index,0,{x:(all[index].x+all[index+1].x)/2,y:(all[index].y+all[index+1].y)/2});save();renderRacks();});svg.appendChild(add);}}
+    if(state.cableMode&&selected){screen.forEach((point,index)=>{const handle=document.createElementNS('http://www.w3.org/2000/svg','circle');handle.setAttribute('class','cable-point');handle.setAttribute('cx',String(point.x));handle.setAttribute('cy',String(point.y));handle.setAttribute('r','6');handle.setAttribute('fill',color);handle.addEventListener('pointerdown',event=>startCrossPointDrag(event,canvas,c,index,path,hit,handle,a,b));svg.appendChild(handle);});const all=[a,...screen,b];for(let index=0;index<all.length-1;index++){const mid={x:(all[index].x+all[index+1].x)/2,y:(all[index].y+all[index+1].y)/2};const add=document.createElementNS('http://www.w3.org/2000/svg','circle');add.setAttribute('class','cable-addpoint');add.setAttribute('cx',String(mid.x));add.setAttribute('cy',String(mid.y));add.setAttribute('r','4.5');add.addEventListener('click',event=>{event.stopPropagation();c.points.splice(index,0,crossPointToParam(a,b,mid));save();renderRacks();});svg.appendChild(add);}}
   });canvas.appendChild(svg);
 }
 function startCrossPointDrag(event,canvas,cable,index,path,hit,handle,a,b){event.preventDefault();event.stopPropagation();pointDrag={cross:true,canvas,cable,index,path,hit,handle,a,b};window.addEventListener('pointermove',moveCrossPointDrag);window.addEventListener('pointerup',endCrossPointDrag);}
-function moveCrossPointDrag(event){if(!pointDrag||!pointDrag.cross)return;const point=canvasPoint(pointDrag.canvas,event);pointDrag.cable.points[pointDrag.index]=point;const d=cablePathD(pointDrag.a,pointDrag.cable.points,pointDrag.b);pointDrag.path.setAttribute('d',d);pointDrag.hit.setAttribute('d',d);pointDrag.handle.setAttribute('cx',String(point.x));pointDrag.handle.setAttribute('cy',String(point.y));}
+function moveCrossPointDrag(event){if(!pointDrag||!pointDrag.cross)return;const point=canvasPoint(pointDrag.canvas,event);pointDrag.cable.points[pointDrag.index]=crossPointToParam(pointDrag.a,pointDrag.b,point);const screen=pointDrag.cable.points.map(p=>crossParamToPoint(pointDrag.a,pointDrag.b,p));const d=cablePathD(pointDrag.a,screen,pointDrag.b);pointDrag.path.setAttribute('d',d);pointDrag.hit.setAttribute('d',d);pointDrag.handle.setAttribute('cx',String(point.x));pointDrag.handle.setAttribute('cy',String(point.y));}
 function endCrossPointDrag(){if(!pointDrag||!pointDrag.cross)return;window.removeEventListener('pointermove',moveCrossPointDrag);window.removeEventListener('pointerup',endCrossPointDrag);pointDrag=null;save();renderRacks();}
 function updateCableStatus(){
   const status=document.getElementById('cableStatus'),cancel=document.getElementById('cancelCable'),remove=document.getElementById('deleteCable');
@@ -771,7 +796,7 @@ function endCableDrag(event){
   if(target&&!sameEndpoint&&target.dataset.direction!=='output'&&target.dataset.type===(drag.connector.type||'Other')){
     const endpoint={uid:target.dataset.uid,connectorId:target.dataset.connectorId};
     const duplicate=allCableCandidates().some(c=>c.view===drag.view&&c.from.uid===drag.placement.uid&&c.from.connectorId===drag.connector.id&&c.to.uid===endpoint.uid&&c.to.connectorId===endpoint.connectorId);
-    if(!duplicate){const cable={id:uid(),view:drag.view,type:drag.connector.type||'Other',color:cableColor(drag.connector.type||'Other'),points:[],from:{uid:drag.placement.uid,connectorId:drag.connector.id},to:endpoint},sourceRack=drag.rack&&drag.rack.id,targetRack=target.dataset.rackId;if(sourceRack&&sourceRack===targetRack)drag.rack.cables.push(cable);else{cable.pointsZoom=state.zoom;state.crossCables.push(cable);}save();}
+    if(!duplicate){const cable={id:uid(),view:drag.view,type:drag.connector.type||'Other',color:cableColor(drag.connector.type||'Other'),points:[],from:{uid:drag.placement.uid,connectorId:drag.connector.id},to:endpoint},sourceRack=drag.rack&&drag.rack.id,targetRack=target.dataset.rackId;if(sourceRack&&sourceRack===targetRack)drag.rack.cables.push(cable);else{state.crossCables.push(cable);}save();}
   }
   updateCableStatus(); renderRacks();
 }
@@ -1406,15 +1431,13 @@ document.getElementById('viewSeg').addEventListener('click',e=>{ const b=e.targe
 document.querySelectorAll('.chip[data-blank]').forEach(ch=>ch.addEventListener('pointerdown',ev=>startDrag(ev,{mode:'new',libId:'blank'+ch.dataset.blank})));
 function updateZoom(value,persist=true){
   const nextZoom=Math.max(.5,Math.min(2,Math.round(value*10)/10));
-  let cablePointsChanged=false;
-  (state.crossCables||[]).forEach(cable=>{if(scaleCrossCablePointsToZoom(cable,nextZoom))cablePointsChanged=true;});
   state.zoom=nextZoom;
   document.documentElement.style.setProperty('--rack-zoom',state.zoom);
   document.documentElement.style.setProperty('--rack-stat-gap',Math.ceil(28*state.zoom+12)+'px');
   document.getElementById('zoomReset').textContent=Math.round(state.zoom*100)+'%';
   document.getElementById('zoomOut').disabled=state.zoom<=.5;
   document.getElementById('zoomIn').disabled=state.zoom>=2;
-  if(persist||cablePointsChanged)save(persist);
+  if(persist)save(persist);
   scheduleZoomCableAlignment();
 }
 let zoomCableFrame=0;
