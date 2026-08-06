@@ -242,6 +242,9 @@
   .crop-side .plabel{font-size:12px;color:var(--muted);margin-bottom:6px}
   .crop-preview{width:100%;height:120px;background:#0a0b0e center/contain no-repeat;border:1px solid var(--line);border-radius:6px}
   .crop-tip{font-size:12px;color:var(--muted);margin-top:10px}
+  .erase-stage{background:#2b2f37;background-image:linear-gradient(45deg,#22262d 25%,transparent 25%),linear-gradient(-45deg,#22262d 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#22262d 75%),linear-gradient(-45deg,transparent 75%,#22262d 75%);background-size:20px 20px;background-position:0 0,0 10px,10px -10px,-10px 0}
+  #eraseCanvas{display:block;cursor:crosshair}
+  #eraseTol{width:100%;accent-color:var(--accent)}
   .crop-actions{display:flex;justify-content:flex-end;gap:8px;flex:none}
   .crop-loupe{position:fixed;display:none;width:190px;height:190px;border:4px solid #fff;border-radius:50%;overflow:hidden;background:#000;box-shadow:0 8px 32px rgba(0,0,0,.8),0 0 0 2px var(--accent);pointer-events:none;z-index:900}
   .crop-loupe.open{display:block}
@@ -461,12 +464,12 @@
       <div class="photo-col">
         <label>Front photo</label>
         <div class="drop-photo" data-slot="front"><div class="ph">Click or drop<br><span class="hint">auto-cropped</span></div></div>
-        <div class="photo-tools"><div class="url-row"><input class="urlIn" data-slot="front" placeholder="photo URL"><button class="ghost btnUrl" data-slot="front">Load</button></div><div class="btn-row"><button class="ghost btnTrim" data-slot="front" title="Crop whitespace">Auto-crop</button><button class="ghost btnCrop" data-slot="front" title="Four-corner perspective correction">Perspective</button><button class="ghost btnPhotoSearch" data-slot="front" title="Search for front view online">Search photo</button><button class="ghost btnConnectors" data-slot="front" title="Mark connectable ports">Connectors</button></div></div>
+        <div class="photo-tools"><div class="url-row"><input class="urlIn" data-slot="front" placeholder="photo URL"><button class="ghost btnUrl" data-slot="front">Load</button></div><div class="btn-row"><button class="ghost btnErase" data-slot="front" title="Remove the background around the object (any colour)">Remove background</button><button class="ghost btnCrop" data-slot="front" title="Four-corner perspective correction">Perspective</button><button class="ghost btnPhotoSearch" data-slot="front" title="Search for front view online">Search photo</button><button class="ghost btnConnectors" data-slot="front" title="Mark connectable ports">Connectors</button></div></div>
       </div>
       <div class="photo-col">
         <label>Rear photo</label>
         <div class="drop-photo" data-slot="back"><div class="ph">Click or drop<br><span class="hint">auto-cropped</span></div></div>
-        <div class="photo-tools"><div class="url-row"><input class="urlIn" data-slot="back" placeholder="photo URL"><button class="ghost btnUrl" data-slot="back">Load</button></div><div class="btn-row"><button class="ghost btnTrim" data-slot="back" title="Crop whitespace">Auto-crop</button><button class="ghost btnCrop" data-slot="back" title="Four-corner perspective correction">Perspective</button><button class="ghost btnPhotoSearch" data-slot="back" title="Search for rear view online">Search photo</button><button class="ghost btnConnectors" data-slot="back" title="Mark connectable ports">Connectors</button></div></div>
+        <div class="photo-tools"><div class="url-row"><input class="urlIn" data-slot="back" placeholder="photo URL"><button class="ghost btnUrl" data-slot="back">Load</button></div><div class="btn-row"><button class="ghost btnErase" data-slot="back" title="Remove the background around the object (any colour)">Remove background</button><button class="ghost btnCrop" data-slot="back" title="Four-corner perspective correction">Perspective</button><button class="ghost btnPhotoSearch" data-slot="back" title="Search for rear view online">Search photo</button><button class="ghost btnConnectors" data-slot="back" title="Mark connectable ports">Connectors</button></div></div>
       </div>
     </div>
     <input type="file" id="photoFile" accept="image/*" hidden>
@@ -516,6 +519,28 @@
     </div>
   </div>
   <div class="crop-loupe" id="cropLoupe"><canvas id="cropLoupeCanvas" width="380" height="380"></canvas></div>
+</div>
+
+<div class="crop-bg" id="eraseBg">
+  <div class="crop-box">
+    <h2>Remove background — click the areas to erase</h2>
+    <div class="crop-main">
+      <div class="crop-stage erase-stage" id="eraseStage"><canvas id="eraseCanvas"></canvas></div>
+      <div class="crop-side">
+        <div class="plabel">Tolerance</div>
+        <input type="range" id="eraseTol" min="8" max="150" value="48" aria-label="Erase tolerance">
+        <div class="crop-tip">Higher tolerance erases a wider range of similar colours per click.</div>
+        <button class="ghost" id="eraseAuto" style="width:100%;margin-top:8px">Auto — erase from edges</button>
+        <div class="crop-tip">Then click any leftover background pockets (e.g. beside a monitor stand). Use Undo if too much is removed.</div>
+      </div>
+    </div>
+    <div class="crop-actions">
+      <button class="ghost" id="eraseUndo">Undo</button>
+      <button class="ghost" id="eraseReset">Reset</button>
+      <button class="ghost" id="eraseCancel">Cancel</button>
+      <button class="primary" id="eraseApply">Apply</button>
+    </div>
+  </div>
 </div>
 
 <div class="connector-bg" id="connectorBg">
@@ -1237,7 +1262,7 @@ document.querySelectorAll('.drop-photo').forEach(d=>{
 });
 document.getElementById('photoFile').addEventListener('change',e=>{ const f=e.target.files[0]; if(f) processSrc(URL.createObjectURL(f),data=>{photos[pendingSlot]=data;paintPhoto(pendingSlot);}); e.target.value=''; });
 document.querySelectorAll('.btnUrl').forEach(b=>b.addEventListener('click',()=>{ const slot=b.dataset.slot; const u=document.querySelector('.urlIn[data-slot="'+slot+'"]').value.trim(); if(u) processSrc(u,data=>{photos[slot]=data;paintPhoto(slot);}); }));
-document.querySelectorAll('.btnTrim').forEach(b=>b.addEventListener('click',()=>{ const slot=b.dataset.slot; if(photos[slot]) processSrc(photos[slot],data=>{photos[slot]=data;paintPhoto(slot);}); else alert('Add a photo to this slot first.'); }));
+document.querySelectorAll('.btnErase').forEach(b=>b.addEventListener('click',()=>openErase(b.dataset.slot)));
 document.querySelectorAll('.btnPhotoSearch').forEach(b=>b.addEventListener('click',()=>{ const n=document.getElementById('fName').value.trim(); if(!n){alert('Enter a product name first.');return;} const side=b.dataset.slot==='back'?'rear panel back':'front panel'; window.open('https://www.google.com/search?tbm=isch&q='+encodeURIComponent(n+' '+side),'_blank'); }));
 
 /* ---- connector annotation editor ---- */
@@ -1839,6 +1864,70 @@ document.getElementById('cropReset').addEventListener('click',()=>{ resetCorners
 document.getElementById('cropCancel').addEventListener('click',closeCrop);
 document.getElementById('cropBg').addEventListener('click',e=>{ if(e.target===document.getElementById('cropBg')) closeCrop(); });
 document.getElementById('cropApply').addEventListener('click',()=>{ try{ const raw=warpToCanvas().toDataURL('image/png'); processSrc(raw,data=>{ photos[crop.slot]=data; paintPhoto(crop.slot); closeCrop(); }); }catch(e){ alert('Perspective correction failed.'); } });
+
+/* ---- remove background: magic-wand eraser (works on any colour) ---- */
+let erase={slot:null,canvas:null,ctx:null,natW:0,natH:0,history:[]};
+function openErase(slot){
+  if(!photos[slot]){ alert('Add a photo to this slot first.'); return; }
+  const img=new Image(); img.crossOrigin='anonymous';
+  img.onload=()=>{
+    const cap=1000,s=Math.min(1,cap/img.width);
+    const nw=Math.max(1,Math.round(img.width*s)),nh=Math.max(1,Math.round(img.height*s));
+    const c=document.getElementById('eraseCanvas'); c.width=nw; c.height=nh;
+    const ctx=c.getContext('2d',{willReadFrequently:true}); ctx.clearRect(0,0,nw,nh); ctx.drawImage(img,0,0,nw,nh);
+    try{ ctx.getImageData(0,0,1,1); }catch(e){ alert('Background removal needs an uploaded image. Upload the image (or load its URL) first.'); return; }
+    const narrow=window.innerWidth<=780;
+    const maxW=Math.max(280,window.innerWidth-(narrow?36:330)),maxH=Math.max(220,window.innerHeight-(narrow?320:150));
+    const d=Math.min(maxW/nw,maxH/nh,1);
+    c.style.width=Math.round(nw*d)+'px'; c.style.height=Math.round(nh*d)+'px';
+    erase={slot,canvas:c,ctx,natW:nw,natH:nh,history:[]};
+    pushEraseHistory();
+    document.getElementById('eraseBg').classList.add('open');
+  };
+  img.onerror=()=>alert('Could not load the photo.');
+  img.src=photos[slot];
+}
+function pushEraseHistory(){ try{ erase.history.push(erase.ctx.getImageData(0,0,erase.natW,erase.natH)); if(erase.history.length>16)erase.history.shift(); }catch(e){} }
+function floodErase(seedX,seedY,tol){
+  const w=erase.natW,h=erase.natH,image=erase.ctx.getImageData(0,0,w,h),d=image.data;
+  const si=(seedY*w+seedX)*4; if(d[si+3]===0)return false;
+  const sr=d[si],sg=d[si+1],sb=d[si+2],thr=3*tol*tol;
+  const seen=new Uint8Array(w*h),stack=[seedY*w+seedX]; let changed=false;
+  while(stack.length){ const p=stack.pop(); if(seen[p])continue; seen[p]=1; const i=p*4; if(d[i+3]===0)continue; const dr=d[i]-sr,dg=d[i+1]-sg,db=d[i+2]-sb; if(dr*dr+dg*dg+db*db>thr)continue; d[i+3]=0; changed=true; const x=p%w; if(x>0)stack.push(p-1); if(x<w-1)stack.push(p+1); if(p>=w)stack.push(p-w); if(p<w*(h-1))stack.push(p+w); }
+  if(changed)erase.ctx.putImageData(image,0,0);
+  return changed;
+}
+function eraseAt(clientX,clientY){
+  const r=erase.canvas.getBoundingClientRect();
+  const x=Math.floor((clientX-r.left)/r.width*erase.natW),y=Math.floor((clientY-r.top)/r.height*erase.natH);
+  if(x<0||y<0||x>=erase.natW||y>=erase.natH)return;
+  if(floodErase(x,y,+document.getElementById('eraseTol').value))pushEraseHistory();
+}
+function eraseAutoEdges(){
+  const w=erase.natW,h=erase.natH,tol=+document.getElementById('eraseTol').value; let any=false;
+  const seeds=[[0,0],[w-1,0],[0,h-1],[w-1,h-1],[w>>1,0],[w>>1,h-1],[0,h>>1],[w-1,h>>1]];
+  for(const [x,y] of seeds){ if(floodErase(x,y,tol))any=true; }
+  if(any)pushEraseHistory();
+}
+function eraseUndo(){ if(erase.history.length>1){ erase.history.pop(); erase.ctx.putImageData(erase.history[erase.history.length-1],0,0); } }
+function eraseReset(){ if(erase.history.length){ const first=erase.history[0]; erase.ctx.putImageData(first,0,0); erase.history=[first]; } }
+function closeErase(){ document.getElementById('eraseBg').classList.remove('open'); }
+function eraseApply(){
+  const w=erase.natW,h=erase.natH,d=erase.ctx.getImageData(0,0,w,h).data;
+  let minX=w,minY=h,maxX=0,maxY=0,found=false;
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){ if(d[(y*w+x)*4+3]>12){ found=true; if(x<minX)minX=x; if(x>maxX)maxX=x; if(y<minY)minY=y; if(y>maxY)maxY=y; } }
+  let out;
+  if(found){ const pad=1; minX=Math.max(0,minX-pad);minY=Math.max(0,minY-pad);maxX=Math.min(w-1,maxX+pad);maxY=Math.min(h-1,maxY+pad); const cw=maxX-minX+1,ch=maxY-minY+1; const o=document.createElement('canvas'); o.width=cw;o.height=ch; o.getContext('2d').drawImage(erase.canvas,minX,minY,cw,ch,0,0,cw,ch); out=o; } else out=erase.canvas;
+  try{ photos[erase.slot]=out.toDataURL('image/png'); paintPhoto(erase.slot); }catch(e){ alert('Background removal failed.'); }
+  closeErase();
+}
+document.getElementById('eraseCanvas').addEventListener('click',e=>eraseAt(e.clientX,e.clientY));
+document.getElementById('eraseAuto').addEventListener('click',eraseAutoEdges);
+document.getElementById('eraseUndo').addEventListener('click',eraseUndo);
+document.getElementById('eraseReset').addEventListener('click',eraseReset);
+document.getElementById('eraseCancel').addEventListener('click',closeErase);
+document.getElementById('eraseApply').addEventListener('click',eraseApply);
+document.getElementById('eraseBg').addEventListener('click',e=>{ if(e.target===document.getElementById('eraseBg'))closeErase(); });
 
 /* ---- boot ---- */
 load(); applySidebarWidth(state.sidebarWidth,false); applyToolsState(false); document.getElementById('showProductNames').checked=state.showNames; document.getElementById('cableMode').checked=state.cableMode; document.getElementById('showCables').checked=state.showCables; updateCableStatus(); updateZoom(state.zoom,false); renderLib(); renderRacks();
