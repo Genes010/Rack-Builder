@@ -243,7 +243,8 @@
   .crop-preview{width:100%;height:120px;background:#0a0b0e center/contain no-repeat;border:1px solid var(--line);border-radius:6px}
   .crop-tip{font-size:12px;color:var(--muted);margin-top:10px}
   .erase-stage{background:#2b2f37;background-image:linear-gradient(45deg,#22262d 25%,transparent 25%),linear-gradient(-45deg,#22262d 25%,transparent 25%),linear-gradient(45deg,transparent 75%,#22262d 75%),linear-gradient(-45deg,transparent 75%,#22262d 75%);background-size:20px 20px;background-position:0 0,0 10px,10px -10px,-10px 0}
-  #eraseCanvas{display:block;cursor:crosshair}
+  #eraseCanvas{position:absolute;top:0;left:0;transform-origin:0 0;display:block;cursor:crosshair;will-change:transform}
+  .erase-zoom{width:100%}.erase-zoom button{flex:1}
   #eraseTol{width:100%;accent-color:var(--accent)}
   .crop-actions{display:flex;justify-content:flex-end;gap:8px;flex:none}
   .crop-loupe{position:fixed;display:none;width:190px;height:190px;border:4px solid #fff;border-radius:50%;overflow:hidden;background:#000;box-shadow:0 8px 32px rgba(0,0,0,.8),0 0 0 2px var(--accent);pointer-events:none;z-index:900}
@@ -518,7 +519,6 @@
       <button class="primary" id="cropApply">Apply</button>
     </div>
   </div>
-  <div class="crop-loupe" id="cropLoupe"><canvas id="cropLoupeCanvas" width="380" height="380"></canvas></div>
 </div>
 
 <div class="crop-bg" id="eraseBg">
@@ -532,6 +532,9 @@
         <div class="crop-tip">Higher tolerance erases a wider range of similar colours per click.</div>
         <button class="ghost" id="eraseAuto" style="width:100%;margin-top:8px">Auto — erase from edges</button>
         <div class="crop-tip">Then click any leftover background pockets (e.g. beside a monitor stand). Use Undo if too much is removed.</div>
+        <div class="plabel" style="margin-top:14px">Zoom</div>
+        <div class="zoom-controls erase-zoom"><button id="eraseZoomOut" title="Zoom out">−</button><button id="eraseZoomReset" title="Fit to view">Fit</button><button id="eraseZoomIn" title="Zoom in">+</button></div>
+        <div class="crop-tip">Scroll to zoom · drag to pan · click to erase. A magnifier follows your cursor.</div>
       </div>
     </div>
     <div class="crop-actions">
@@ -542,6 +545,8 @@
     </div>
   </div>
 </div>
+
+<div class="crop-loupe" id="cropLoupe"><canvas id="cropLoupeCanvas" width="380" height="380"></canvas></div>
 
 <div class="connector-bg" id="connectorBg">
   <div class="connector-box">
@@ -1866,7 +1871,7 @@ document.getElementById('cropBg').addEventListener('click',e=>{ if(e.target===do
 document.getElementById('cropApply').addEventListener('click',()=>{ try{ const raw=warpToCanvas().toDataURL('image/png'); processSrc(raw,data=>{ photos[crop.slot]=data; paintPhoto(crop.slot); closeCrop(); }); }catch(e){ alert('Perspective correction failed.'); } });
 
 /* ---- remove background: magic-wand eraser (works on any colour) ---- */
-let erase={slot:null,canvas:null,ctx:null,natW:0,natH:0,history:[]};
+let erase={slot:null,canvas:null,ctx:null,natW:0,natH:0,history:[],zoom:1,panX:0,panY:0,fitW:0,fitH:0,drag:null};
 function openErase(slot){
   if(!photos[slot]){ alert('Add a photo to this slot first.'); return; }
   const img=new Image(); img.crossOrigin='anonymous';
@@ -1879,8 +1884,11 @@ function openErase(slot){
     const narrow=window.innerWidth<=780;
     const maxW=Math.max(280,window.innerWidth-(narrow?36:330)),maxH=Math.max(220,window.innerHeight-(narrow?320:150));
     const d=Math.min(maxW/nw,maxH/nh,1);
-    c.style.width=Math.round(nw*d)+'px'; c.style.height=Math.round(nh*d)+'px';
-    erase={slot,canvas:c,ctx,natW:nw,natH:nh,history:[]};
+    const fitW=Math.round(nw*d),fitH=Math.round(nh*d);
+    c.style.width=fitW+'px'; c.style.height=fitH+'px';
+    const stage=document.getElementById('eraseStage'); stage.style.width=fitW+'px'; stage.style.height=fitH+'px';
+    erase={slot,canvas:c,ctx,natW:nw,natH:nh,history:[],zoom:1,panX:0,panY:0,fitW,fitH,drag:null};
+    applyEraseView();
     pushEraseHistory();
     document.getElementById('eraseBg').classList.add('open');
   };
@@ -1911,7 +1919,29 @@ function eraseAutoEdges(){
 }
 function eraseUndo(){ if(erase.history.length>1){ erase.history.pop(); erase.ctx.putImageData(erase.history[erase.history.length-1],0,0); } }
 function eraseReset(){ if(erase.history.length){ const first=erase.history[0]; erase.ctx.putImageData(first,0,0); erase.history=[first]; } }
-function closeErase(){ document.getElementById('eraseBg').classList.remove('open'); }
+function closeErase(){ document.getElementById('eraseBg').classList.remove('open'); hideEraseLoupe(); erase.drag=null; }
+function applyEraseView(){ if(erase.canvas)erase.canvas.style.transform='translate('+erase.panX+'px,'+erase.panY+'px) scale('+erase.zoom+')'; }
+function clampErasePan(){ const sw=erase.fitW,sh=erase.fitH,scW=sw*erase.zoom,scH=sh*erase.zoom; erase.panX=scW<=sw?(sw-scW)/2:Math.min(0,Math.max(sw-scW,erase.panX)); erase.panY=scH<=sh?(sh-scH)/2:Math.min(0,Math.max(sh-scH,erase.panY)); }
+function setEraseZoom(nz,cx,cy){ nz=Math.max(1,Math.min(12,Math.round(nz*100)/100)); const old=erase.zoom; if(nz===old)return; if(cx==null){cx=erase.fitW/2;cy=erase.fitH/2;} const contentX=(cx-erase.panX)/old,contentY=(cy-erase.panY)/old; erase.zoom=nz; erase.panX=cx-contentX*nz; erase.panY=cy-contentY*nz; clampErasePan(); applyEraseView(); }
+function drawLoupeChecker(ctx,w,h){ const s=12; for(let y=0;y<h;y+=s)for(let x=0;x<w;x+=s){ ctx.fillStyle=(((x/s|0)+(y/s|0))&1)?'#2b2f37':'#22262d'; ctx.fillRect(x,y,s,s); } }
+function hideEraseLoupe(){ const l=document.getElementById('cropLoupe'); if(l)l.classList.remove('open'); }
+function updateEraseLoupe(ev){
+  if(!erase.canvas)return;
+  const loupe=document.getElementById('cropLoupe'),canvas=document.getElementById('cropLoupeCanvas'),ctx=canvas.getContext('2d');
+  const r=erase.canvas.getBoundingClientRect();
+  const nx=(ev.clientX-r.left)/r.width*erase.natW,ny=(ev.clientY-r.top)/r.height*erase.natH;
+  if(nx<0||ny<0||nx>=erase.natW||ny>=erase.natH){ loupe.classList.remove('open'); return; }
+  const srcSize=canvas.width/9;
+  drawLoupeChecker(ctx,canvas.width,canvas.height);
+  ctx.imageSmoothingEnabled=false;
+  ctx.drawImage(erase.canvas,nx-srcSize/2,ny-srcSize/2,srcSize,srcSize,0,0,canvas.width,canvas.height);
+  const mid=canvas.width/2; ctx.strokeStyle='rgba(255,255,255,.9)'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(mid-26,mid);ctx.lineTo(mid+26,mid);ctx.moveTo(mid,mid-26);ctx.lineTo(mid,mid+26); ctx.stroke();
+  ctx.strokeStyle='#4c8dff'; ctx.lineWidth=3; ctx.beginPath(); ctx.arc(mid,mid,9,0,Math.PI*2); ctx.stroke();
+  const cssSize=window.innerWidth<=780?145:190;
+  let left=ev.clientX+26; if(left+cssSize+8>window.innerWidth)left=ev.clientX-cssSize-26;
+  let top=ev.clientY-cssSize/2; top=Math.max(8,Math.min(window.innerHeight-cssSize-8,top));
+  loupe.style.left=Math.max(8,left)+'px'; loupe.style.top=top+'px'; loupe.classList.add('open');
+}
 function eraseApply(){
   const w=erase.natW,h=erase.natH,d=erase.ctx.getImageData(0,0,w,h).data;
   let minX=w,minY=h,maxX=0,maxY=0,found=false;
@@ -1921,7 +1951,22 @@ function eraseApply(){
   try{ photos[erase.slot]=out.toDataURL('image/png'); paintPhoto(erase.slot); }catch(e){ alert('Background removal failed.'); }
   closeErase();
 }
-document.getElementById('eraseCanvas').addEventListener('click',e=>eraseAt(e.clientX,e.clientY));
+(function(){
+  const eCanvas=document.getElementById('eraseCanvas'),eStage=document.getElementById('eraseStage');
+  const stageLocal=e=>{ const r=eStage.getBoundingClientRect(); return {x:e.clientX-r.left,y:e.clientY-r.top}; };
+  eCanvas.addEventListener('pointerdown',e=>{ if(e.button!==0&&e.button!==1)return; e.preventDefault(); erase.drag={x:e.clientX,y:e.clientY,panX:erase.panX,panY:erase.panY,moved:false,pan:e.button===1}; try{eCanvas.setPointerCapture(e.pointerId);}catch(_){} });
+  eCanvas.addEventListener('pointermove',e=>{
+    if(erase.drag){ const dx=e.clientX-erase.drag.x,dy=e.clientY-erase.drag.y; if(Math.hypot(dx,dy)>4)erase.drag.moved=true; if(erase.drag.moved){ erase.panX=erase.drag.panX+dx; erase.panY=erase.drag.panY+dy; clampErasePan(); applyEraseView(); } }
+    updateEraseLoupe(e);
+  });
+  eCanvas.addEventListener('pointerup',e=>{ const dr=erase.drag; erase.drag=null; if(dr&&!dr.moved&&!dr.pan)eraseAt(e.clientX,e.clientY); updateEraseLoupe(e); });
+  eCanvas.addEventListener('pointercancel',()=>{ erase.drag=null; });
+  eCanvas.addEventListener('pointerleave',hideEraseLoupe);
+  eStage.addEventListener('wheel',e=>{ e.preventDefault(); const l=stageLocal(e); setEraseZoom(erase.zoom*(e.deltaY<0?1.2:1/1.2),l.x,l.y); updateEraseLoupe(e); },{passive:false});
+  document.getElementById('eraseZoomIn').addEventListener('click',()=>setEraseZoom(erase.zoom*1.25));
+  document.getElementById('eraseZoomOut').addEventListener('click',()=>setEraseZoom(erase.zoom/1.25));
+  document.getElementById('eraseZoomReset').addEventListener('click',()=>{ erase.zoom=1; erase.panX=0; erase.panY=0; clampErasePan(); applyEraseView(); });
+})();
 document.getElementById('eraseAuto').addEventListener('click',eraseAutoEdges);
 document.getElementById('eraseUndo').addEventListener('click',eraseUndo);
 document.getElementById('eraseReset').addEventListener('click',eraseReset);
