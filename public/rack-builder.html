@@ -144,6 +144,11 @@
   .system-canvas.cable-target-search .rack-port.cable-source,.system-canvas.cable-target-search .workspace-port.cable-source{opacity:1;transform:translate(-50%,-50%) scale(1.18);box-shadow:0 0 0 2px rgba(255,255,255,.18),0 0 5px currentColor;filter:none}
   .cross-cable-layer{z-index:25!important}
   .external-drop-hint{position:absolute;border:2px dashed var(--ok);border-radius:9px;background:rgba(62,207,142,.14);pointer-events:none;z-index:20}
+  .external-drop-hint.bad{border-color:var(--bad);background:rgba(240,90,90,.14)}
+  .drop-hint.bad,.external-drop-hint.bad{border-color:var(--bad)}
+  .toast{position:fixed;left:50%;bottom:30px;transform:translateX(-50%) translateY(12px);max-width:440px;width:max-content;display:flex;gap:10px;align-items:flex-start;background:#1c2027;border:1px solid var(--line);border-left:3px solid var(--warn,#f0b64d);border-radius:10px;padding:12px 16px;color:var(--muted);font-size:12.5px;line-height:1.45;box-shadow:0 16px 44px rgba(0,0,0,.6);z-index:900;opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast .ico{font-size:15px;line-height:1.2}.toast b{color:#fff;font-weight:600}
   .rack-col{position:absolute;padding:0 8px 4px}
   .rack-head{display:flex;align-items:center;gap:6px;margin-bottom:8px}
   .rack-head input.rn{width:200px;padding:6px 9px;font-weight:600}
@@ -1115,6 +1120,16 @@ function bayUnder(ev){
   }
   return null;
 }
+let toastTimer=null;
+function showToast(html,type){
+  let t=document.getElementById('appToast');
+  if(!t){ t=document.createElement('div'); t.id='appToast'; t.className='toast'; document.body.appendChild(t); }
+  t.style.borderLeftColor=type==='bad'?'var(--bad)':'#f0b64d';
+  t.innerHTML='<span class="ico">'+(type==='bad'?'⛔':'ℹ️')+'</span><div>'+html+'</div>';
+  requestAnimationFrame(()=>t.classList.add('show'));
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove('show'),5000);
+}
+function pointOverExternalStage(ev){ const stage=document.querySelector('.external-stage'); if(!stage||!ev)return false; const r=stage.getBoundingClientRect(); return ev.clientX>=r.left&&ev.clientX<=r.right&&ev.clientY>=r.top&&ev.clientY<=r.bottom; }
 function startDrag(ev,info){
   ev.preventDefault();
   const g=libById(info.libId); if(!g) return;
@@ -1156,6 +1171,18 @@ function moveDrag(ev){
     if(inside){if(drag.hint.parentElement!==stage)stage.appendChild(drag.hint);const maxW=Number(stage.dataset.canvasWidth)||LAYOUT_MIN_W,maxH=Number(stage.dataset.canvasHeight)||EXTERNAL_H,x=Math.max(0,Math.min(maxW-drag.size.w,Math.round(((ev.clientX-rect.left)/scale-drag.size.w/2)/10)*10)),y=Math.max(0,Math.min(maxH-drag.size.h,Math.round(((ev.clientY-rect.top)/scale-drag.size.h/2)/10)*10));drag.hint.style.display='block';drag.hint.style.left=x+'px';drag.hint.style.top=y+'px';drag.hint.style.width=drag.size.w+'px';drag.hint.style.height=drag.size.h+'px';drag.target={external:true,x,y};}else{drag.hint.style.display='none';drag.target=null;}return;
   }
   const bay=bayUnder(ev);
+  if(!bay&&pointOverExternalStage(ev)){
+    const stage=document.querySelector('.external-stage'),rect=stage.getBoundingClientRect();
+    if(drag.hint.parentElement!==stage)stage.appendChild(drag.hint);
+    drag.hint.className='external-drop-hint bad';
+    const w=(drag.g.width==='half'?226:452),h=drag.g.he*U;
+    drag.hint.style.display='block';
+    drag.hint.style.left=Math.max(0,(ev.clientX-rect.left)/scale-w/2)+'px';
+    drag.hint.style.top=Math.max(0,(ev.clientY-rect.top)/scale-h/2)+'px';
+    drag.hint.style.width=w+'px'; drag.hint.style.height=h+'px';
+    drag.target=null; drag.overExternal=true; return;
+  }
+  drag.overExternal=false;
   if(bay){
     if(drag.hint.parentElement!==bay) bay.appendChild(drag.hint);
     const rack=rackById(bay.dataset.rackId);
@@ -1172,13 +1199,17 @@ function moveDrag(ev){
     drag.hint.style.display='none'; drag.target=null;
   }
 }
-function endDrag(){
+function endDrag(ev){
   window.removeEventListener('pointermove',moveDrag);
   window.removeEventListener('pointerup',endDrag);
   drag.ghost.remove(); drag.hint.remove();
   if(drag.external){
     if(drag.target){if(drag.original)Object.assign(drag.original,drag.target);const next={uid:drag.uid,libId:drag.info.libId,x:drag.target.x,y:drag.target.y};state.external=state.external.filter(p=>p.uid!==drag.uid);state.external.push(next);save();}
+    else if(bayUnder(ev)){ showToast('<b>“'+escapeHtml(drag.g.name)+'” is an external / free-standing device.</b> It can’t be mounted inside a rack. Drop it in the External gear area above the racks instead.','bad'); }
     renderRacks();drag=null;return;
+  }
+  if(!drag.target&&(drag.overExternal||pointOverExternalStage(ev))){
+    showToast('<b>“'+escapeHtml(drag.g.name)+'” is a rack-mounted device.</b> It can only be placed inside a rack. To use it in the External gear area, open the item (✎) and set <b>Placement</b> to “External / free-standing.”','bad');
   }
   if(drag.target){
     const rack=rackById(drag.target.rackId);
