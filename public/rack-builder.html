@@ -66,14 +66,15 @@
   .lib-search input{padding:6px 9px;font-size:12px}
   .blank-tools .chip{justify-content:center;padding:8px 7px}
   .lib{overflow:auto;padding:10px;display:flex;flex-direction:column;gap:8px;flex:1}
-  .card{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:var(--gear-card-pad);display:flex;flex-direction:column;gap:8px;align-items:stretch;cursor:grab;user-select:none;touch-action:none}
+  .card{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:var(--gear-card-pad);display:flex;flex-direction:column;gap:0;align-items:stretch;cursor:grab;user-select:none;touch-action:none}
   .card:active{cursor:grabbing}
   .card .card-top{display:flex;gap:var(--gear-card-gap);align-items:center;min-width:0}
   .card .thumb{width:var(--gear-thumb-w);height:var(--gear-thumb-h);flex:none;border-radius:5px;background:#000 center/contain no-repeat;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:10px;overflow:hidden;transition:width .08s,height .08s}
   .card .meta{min-width:0;flex:1}
   .card .meta .nm{font-weight:600;font-size:var(--gear-name-size);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .card .meta .sub{font-size:var(--gear-sub-size);color:var(--muted)}
-  .card .card-actions{display:flex;gap:6px;justify-content:center;border-top:1px solid var(--line);padding-top:8px}
+  .card .card-actions{display:flex;gap:6px;justify-content:center;border-top:1px solid transparent;max-height:0;padding-top:0;opacity:0;overflow:hidden;transition:max-height .14s ease,padding-top .14s ease,opacity .14s ease}
+  .card:hover .card-actions,.card:focus-within .card-actions{max-height:44px;padding-top:8px;border-top-color:var(--line);opacity:1}
   .card .del,.card .edit,.card .dup{position:relative;z-index:3;flex:0 0 34px;width:34px;height:28px;opacity:.85;color:var(--muted);background:rgba(10,12,16,.3);border:1px solid var(--line);border-radius:7px;padding:0;font-size:15px;line-height:26px;cursor:pointer;touch-action:manipulation}
   .card:hover .del,.card:hover .edit,.card:hover .dup{opacity:1}
   .card .edit:hover,.card .dup:hover{color:var(--accent);border-color:rgba(76,141,255,.45);background:rgba(76,141,255,.1)}
