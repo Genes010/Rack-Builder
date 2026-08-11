@@ -66,16 +66,18 @@
   .lib-search input{padding:6px 9px;font-size:12px}
   .blank-tools .chip{justify-content:center;padding:8px 7px}
   .lib{overflow:auto;padding:10px;display:flex;flex-direction:column;gap:8px;flex:1}
-  .card{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:var(--gear-card-pad);display:flex;gap:var(--gear-card-gap);align-items:center;cursor:grab;user-select:none;touch-action:none}
+  .card{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:var(--gear-card-pad);display:flex;flex-direction:column;gap:8px;align-items:stretch;cursor:grab;user-select:none;touch-action:none}
   .card:active{cursor:grabbing}
+  .card .card-top{display:flex;gap:var(--gear-card-gap);align-items:center;min-width:0}
   .card .thumb{width:var(--gear-thumb-w);height:var(--gear-thumb-h);flex:none;border-radius:5px;background:#000 center/contain no-repeat;border:1px solid var(--line);display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:10px;overflow:hidden;transition:width .08s,height .08s}
   .card .meta{min-width:0;flex:1}
   .card .meta .nm{font-weight:600;font-size:var(--gear-name-size);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .card .meta .sub{font-size:var(--gear-sub-size);color:var(--muted)}
-  .card .del,.card .edit,.card .dup{position:relative;z-index:3;flex:0 0 30px;width:30px;height:30px;opacity:.7;color:var(--muted);background:rgba(10,12,16,.3);border:1px solid transparent;border-radius:7px;padding:0;font-size:15px;line-height:28px;cursor:pointer;touch-action:manipulation}
+  .card .card-actions{display:flex;gap:6px;justify-content:flex-end;border-top:1px solid var(--line);padding-top:8px}
+  .card .del,.card .edit,.card .dup{position:relative;z-index:3;flex:0 0 34px;width:34px;height:28px;opacity:.85;color:var(--muted);background:rgba(10,12,16,.3);border:1px solid var(--line);border-radius:7px;padding:0;font-size:15px;line-height:26px;cursor:pointer;touch-action:manipulation}
   .card:hover .del,.card:hover .edit,.card:hover .dup{opacity:1}
   .card .edit:hover,.card .dup:hover{color:var(--accent);border-color:rgba(76,141,255,.45);background:rgba(76,141,255,.1)}
-  .card .del:hover{color:var(--bad)}
+  .card .del:hover{color:var(--bad);border-color:rgba(240,90,90,.45)}
   .empty{color:var(--muted);font-size:12px;text-align:center;padding:20px 8px}
   main{grid-column:2;grid-row:2;overflow:auto;padding:22px;min-width:0}
   .right-toolbar{grid-column:3;grid-row:2;min-width:0;overflow:hidden;background:var(--panel);border-left:1px solid var(--line);display:flex;flex-direction:column}
@@ -260,10 +262,11 @@
   .connector-head h2{margin:0;font-size:15px}.connector-head .connector-help{color:var(--muted);font-size:12px}.connector-head .spacer{flex:1}
   .connector-defaults{display:flex;align-items:center;gap:6px;color:var(--muted);font-size:11px;white-space:nowrap}.connector-defaults select{padding:6px;font-size:11px}
   .connector-main{display:flex;flex:1;min-height:0;overflow:hidden}
-  .connector-canvas{flex:1;min-width:0;display:flex;align-items:center;justify-content:center;overflow:auto;padding:18px;background:#090a0d}
-  .connector-stage{position:relative;display:inline-block;flex:none;line-height:0;box-shadow:0 12px 40px rgba(0,0,0,.7);cursor:crosshair}
-  .connector-stage img{display:block;max-width:calc(100vw - 390px);max-height:calc(100vh - 120px);width:auto;height:auto;user-select:none;-webkit-user-drag:none}
-  .connector-marker{position:absolute;width:20px;height:20px;padding:0;transform:translate(-50%,-50%);border:2px solid #fff;border-radius:50%;z-index:3;box-shadow:0 0 0 3px rgba(0,0,0,.65),0 0 12px currentColor;cursor:grab}
+  .connector-canvas{flex:1;min-width:0;position:relative;overflow:hidden;background:#090a0d;touch-action:none}
+  .connector-canvas.panning{cursor:grabbing}
+  .connector-stage{position:absolute;top:0;left:0;flex:none;line-height:0;box-shadow:0 12px 40px rgba(0,0,0,.7);cursor:crosshair;transform-origin:0 0;will-change:transform}
+  .connector-stage img{display:block;max-width:calc(100vw - 390px);max-height:calc(100vh - 120px);width:auto;height:auto;user-select:none;-webkit-user-drag:none;pointer-events:none}
+  .connector-marker{position:absolute;width:20px;height:20px;padding:0;transform:translate(-50%,-50%) scale(var(--mz,1));transform-origin:center;border:2px solid #fff;border-radius:50%;z-index:3;box-shadow:0 0 0 3px rgba(0,0,0,.65),0 0 12px currentColor;cursor:grab}
   .connector-marker:active{cursor:grabbing}.connector-marker.input{background:#388bff;color:#388bff}.connector-marker.output{background:#3ecf8e;color:#3ecf8e}.connector-marker.bidirectional{background:#f0b64d;color:#f0b64d}
   .connector-marker.suggested{border-style:dashed;box-shadow:0 0 0 4px rgba(184,112,255,.65),0 0 14px #b870ff}
   .connector-side{width:350px;flex:none;display:flex;flex-direction:column;min-height:0;border-left:1px solid var(--line);background:var(--panel)}
@@ -340,7 +343,7 @@
     .crop-preview{height:90px}
     .crop-loupe{width:145px;height:145px}
     .photo-tools .btn-row{grid-template-columns:1fr}
-    .connector-main{flex-direction:column}.connector-canvas{padding:8px}.connector-stage img{max-width:calc(100vw - 32px);max-height:52vh}.connector-side{width:100%;max-height:42vh;border-left:0;border-top:1px solid var(--line)}
+    .connector-main{flex-direction:column}.connector-canvas{min-height:52vh}.connector-stage img{max-width:calc(100vw - 32px);max-height:52vh}.connector-side{width:100%;max-height:42vh;border-left:0;border-top:1px solid var(--line)}
     .connector-item{grid-template-columns:minmax(0,1fr) 88px 88px 28px}
     .modal .grid5{grid-template-columns:1fr 1fr}
     .search-bg{padding:0}
@@ -562,6 +565,7 @@
       <button class="primary" id="connectorSuggest" title="Analyze this photo locally and suggest likely connector positions">✨ Suggest connectors</button>
       <button class="ghost" id="connectorClearSuggestions" title="Remove unconfirmed automatic suggestions">Clear suggestions</button>
       <button class="ghost" id="connectorUndo">Undo last</button>
+      <div class="zoom-controls connector-zoom" aria-label="Photo zoom"><button type="button" id="connectorZoomOut" title="Zoom out">−</button><button type="button" id="connectorZoomReset" title="Fit to view">Fit</button><button type="button" id="connectorZoomIn" title="Zoom in">+</button></div>
     </div>
     <div class="connector-main">
       <div class="connector-canvas">
@@ -1087,7 +1091,7 @@ function renderLib(){
     const widthTag=g.width==='half'?' · half-width':'';
     const c=document.createElement('div'); c.className='card';
     const dimensions=external&&g.externalWidth&&g.externalHeight?' · '+g.externalWidth+'×'+g.externalHeight+'mm':'';
-    c.innerHTML='<div class="thumb" '+(thumb?'style="background-image:url(\''+thumb+'\')"':'')+'>'+(thumb?'':external?'EXT':g.he+'U')+'</div><div class="meta"><div class="nm">'+escapeHtml(g.name)+'</div><div class="sub">'+(external?'External'+dimensions:(g.he+'U'+widthTag+mountTag))+(g.weight?' · '+g.weight+'kg':'')+(g.depth?' · '+g.depth+'mm':'')+'</div></div><button type="button" class="dup" aria-label="Duplicate '+escapeAttr(g.name)+'" title="Duplicate">⧉</button><button type="button" class="edit" aria-label="Edit '+escapeAttr(g.name)+'" title="Edit">✎</button><button type="button" class="del" aria-label="Remove '+escapeAttr(g.name)+' from library" title="Remove from library">✕</button>';
+    c.innerHTML='<div class="card-top"><div class="thumb" '+(thumb?'style="background-image:url(\''+thumb+'\')"':'')+'>'+(thumb?'':external?'EXT':g.he+'U')+'</div><div class="meta"><div class="nm">'+escapeHtml(g.name)+'</div><div class="sub">'+(external?'External'+dimensions:(g.he+'U'+widthTag+mountTag))+(g.weight?' · '+g.weight+'kg':'')+(g.depth?' · '+g.depth+'mm':'')+'</div></div></div><div class="card-actions"><button type="button" class="dup" aria-label="Duplicate '+escapeAttr(g.name)+'" title="Duplicate">⧉</button><button type="button" class="edit" aria-label="Edit '+escapeAttr(g.name)+'" title="Edit">✎</button><button type="button" class="del" aria-label="Remove '+escapeAttr(g.name)+' from library" title="Remove from library">✕</button></div>';
     const editButton=c.querySelector('.edit'),deleteButton=c.querySelector('.del'),dupButton=c.querySelector('.dup');
     dupButton.addEventListener('pointerdown',ev=>ev.stopPropagation());
     dupButton.addEventListener('click',ev=>{ ev.preventDefault(); ev.stopPropagation(); const copy=JSON.parse(JSON.stringify(g)); copy.id=uid(); copy.name=(g.name+' copy').slice(0,80); const idx=state.library.findIndex(x=>x.id===g.id); state.library.splice(idx<0?state.library.length:idx+1,0,copy); save(); queuePermanentLibrarySave(); renderLib(); });
@@ -1097,7 +1101,7 @@ function renderLib(){
     deleteButton.addEventListener('pointerdown',ev=>{ev.stopPropagation();});
     deleteButton.addEventListener('click',ev=>{ ev.preventDefault();ev.stopPropagation(); if(confirm('Permanently remove “'+g.name+'” from the shared library? It will also be removed from the current project and may be missing from saved projects that use it.')){ state.library=state.library.filter(x=>x.id!==g.id); selectedCable=null; state.external=state.external.filter(p=>p.libId!==g.id); state.racks.forEach(r=>{ r.placed=r.placed.filter(p=>p.libId!==g.id); cleanRackCables(r); }); cleanCrossCables(); updateCableStatus(); save(); queuePermanentLibrarySave(); renderLib(); renderRacks(); } });
     c.querySelector('.meta').addEventListener('dblclick',()=>openModal(g));
-    c.addEventListener('pointerdown',ev=>{ if(ev.target.closest('.del')||ev.target.closest('.edit')) return; startDrag(ev,{mode:'new',libId:g.id}); });
+    c.addEventListener('pointerdown',ev=>{ if(ev.target.closest('.card-actions')) return; startDrag(ev,{mode:'new',libId:g.id}); });
     lib.appendChild(c);
   }
 }
@@ -1282,6 +1286,12 @@ const connectorDirections=['output','input','bidirectional'];
 const connectorBg=document.getElementById('connectorBg'),connectorStage=document.getElementById('connectorStage'),connectorImg=document.getElementById('connectorImg'),connectorList=document.getElementById('connectorList');
 const connectorDefaultType=document.getElementById('connectorDefaultType'),connectorDefaultDirection=document.getElementById('connectorDefaultDirection');
 let connectorSlot='front',connectorSnapshot=[],connectorDrag=null,connectorDefaults={type:'SDI',direction:'output'};
+let connectorView={zoom:1,panX:0,panY:0,vw:0,vh:0,sw:0,sh:0,drag:null};
+function applyConnectorView(){ connectorStage.style.transform='translate('+connectorView.panX+'px,'+connectorView.panY+'px) scale('+connectorView.zoom+')'; connectorStage.style.setProperty('--mz',(1/connectorView.zoom).toFixed(4)); }
+function clampConnectorPan(){ const v=connectorView,scW=v.sw*v.zoom,scH=v.sh*v.zoom; v.panX=scW<=v.vw?(v.vw-scW)/2:Math.min(0,Math.max(v.vw-scW,v.panX)); v.panY=scH<=v.vh?(v.vh-scH)/2:Math.min(0,Math.max(v.vh-scH,v.panY)); }
+function setConnectorZoom(nz,cx,cy){ const v=connectorView; nz=Math.max(1,Math.min(10,Math.round(nz*100)/100)); const old=v.zoom; if(nz===old)return; if(cx==null){cx=v.vw/2;cy=v.vh/2;} const contentX=(cx-v.panX)/old,contentY=(cy-v.panY)/old; v.zoom=nz; v.panX=cx-contentX*nz; v.panY=cy-contentY*nz; clampConnectorPan(); applyConnectorView(); }
+function initConnectorView(){ const canvas=connectorStage.parentElement,v=connectorView; v.vw=canvas.clientWidth; v.vh=canvas.clientHeight; v.sw=connectorImg.offsetWidth||connectorStage.offsetWidth; v.sh=connectorImg.offsetHeight||connectorStage.offsetHeight; v.zoom=1; v.panX=0; v.panY=0; clampConnectorPan(); applyConnectorView(); }
+function addConnectorAt(e){ const rect=connectorImg.getBoundingClientRect(); if(e.clientX<rect.left||e.clientX>rect.right||e.clientY<rect.top||e.clientY>rect.bottom)return; const number=draftConnectors[connectorSlot].length+1; draftConnectors[connectorSlot].push({id:uid(),name:'Port '+number,type:connectorDefaults.type,direction:connectorDefaults.direction,x:(e.clientX-rect.left)/rect.width,y:(e.clientY-rect.top)/rect.height}); renderConnectorMarkers(); renderConnectorList(); }
 function syncConnectorDefaults(){connectorDefaultType.value=connectorDefaults.type;connectorDefaultDirection.value=connectorDefaults.direction;}
 function renderConnectorMarkers(){
   connectorStage.querySelectorAll('.connector-marker').forEach(m=>m.remove());
@@ -1347,21 +1357,33 @@ function openConnectorEditor(slot){
   syncConnectorDefaults();
   document.getElementById('connectorSuggestionStatus').textContent='Name each port and choose its signal type. Purple dashed markers are automatic suggestions to review.';
   document.getElementById('connectorTitle').textContent=(slot==='back'?'Rear':'Front')+' connector editor'; connectorImg.src=photos[slot];
-  connectorImg.onload=()=>{ renderConnectorMarkers(); renderConnectorList(); }; connectorBg.classList.add('open');
-  if(connectorImg.complete){ renderConnectorMarkers(); renderConnectorList(); }
+  connectorImg.onload=()=>{ initConnectorView(); renderConnectorMarkers(); renderConnectorList(); }; connectorBg.classList.add('open');
+  if(connectorImg.complete){ initConnectorView(); renderConnectorMarkers(); renderConnectorList(); }
 }
 function closeConnectorEditor(keep){
   if(!keep)draftConnectors[connectorSlot]=connectorSnapshot.map(c=>({...c}));
   connectorBg.classList.remove('open'); paintPhoto(connectorSlot);
 }
-connectorStage.addEventListener('click',e=>{
+connectorStage.addEventListener('pointerdown',e=>{
   if(e.target.closest('.connector-marker'))return;
-  const rect=connectorImg.getBoundingClientRect();
-  if(e.clientX<rect.left||e.clientX>rect.right||e.clientY<rect.top||e.clientY>rect.bottom)return;
-  const number=draftConnectors[connectorSlot].length+1;
-  draftConnectors[connectorSlot].push({id:uid(),name:'Port '+number,type:connectorDefaults.type,direction:connectorDefaults.direction,x:(e.clientX-rect.left)/rect.width,y:(e.clientY-rect.top)/rect.height});
-  renderConnectorMarkers(); renderConnectorList();
+  if(e.button!==0&&e.button!==1)return; e.preventDefault();
+  connectorView.drag={x:e.clientX,y:e.clientY,panX:connectorView.panX,panY:connectorView.panY,moved:false,pan:e.button===1};
+  try{connectorStage.setPointerCapture(e.pointerId);}catch(_){}
 });
+connectorStage.addEventListener('pointermove',e=>{
+  const d=connectorView.drag; if(!d)return;
+  const dx=e.clientX-d.x,dy=e.clientY-d.y; if(!d.moved&&Math.hypot(dx,dy)>4){ d.moved=true; connectorStage.parentElement.classList.add('panning'); }
+  if(d.moved){ connectorView.panX=d.panX+dx; connectorView.panY=d.panY+dy; clampConnectorPan(); applyConnectorView(); }
+});
+connectorStage.addEventListener('pointerup',e=>{
+  const d=connectorView.drag; connectorView.drag=null; connectorStage.parentElement.classList.remove('panning');
+  if(d&&!d.moved&&!d.pan)addConnectorAt(e);
+});
+connectorStage.addEventListener('pointercancel',()=>{ connectorView.drag=null; connectorStage.parentElement.classList.remove('panning'); });
+connectorStage.parentElement.addEventListener('wheel',e=>{ e.preventDefault(); const r=connectorStage.parentElement.getBoundingClientRect(); setConnectorZoom(connectorView.zoom*(e.deltaY<0?1.2:1/1.2),e.clientX-r.left,e.clientY-r.top); },{passive:false});
+document.getElementById('connectorZoomIn').addEventListener('click',()=>setConnectorZoom(connectorView.zoom*1.25));
+document.getElementById('connectorZoomOut').addEventListener('click',()=>setConnectorZoom(connectorView.zoom/1.25));
+document.getElementById('connectorZoomReset').addEventListener('click',()=>{ connectorView.zoom=1; connectorView.panX=0; connectorView.panY=0; clampConnectorPan(); applyConnectorView(); });
 document.querySelectorAll('.btnConnectors').forEach(b=>b.addEventListener('click',()=>openConnectorEditor(b.dataset.slot)));
 connectorDefaultType.addEventListener('change',()=>{connectorDefaults.type=connectorDefaultType.value;});connectorDefaultDirection.addEventListener('change',()=>{connectorDefaults.direction=connectorDefaultDirection.value;});
 document.getElementById('connectorSuggest').addEventListener('click',suggestConnectors);
