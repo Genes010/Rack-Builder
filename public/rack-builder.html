@@ -72,9 +72,9 @@
   .card .meta{min-width:0;flex:1}
   .card .meta .nm{font-weight:600;font-size:var(--gear-name-size);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .card .meta .sub{font-size:var(--gear-sub-size);color:var(--muted)}
-  .card .del,.card .edit{position:relative;z-index:3;flex:0 0 30px;width:30px;height:30px;opacity:.7;color:var(--muted);background:rgba(10,12,16,.3);border:1px solid transparent;border-radius:7px;padding:0;font-size:15px;line-height:28px;cursor:pointer;touch-action:manipulation}
-  .card:hover .del,.card:hover .edit{opacity:1}
-  .card .edit:hover{color:var(--accent);border-color:rgba(76,141,255,.45);background:rgba(76,141,255,.1)}
+  .card .del,.card .edit,.card .dup{position:relative;z-index:3;flex:0 0 30px;width:30px;height:30px;opacity:.7;color:var(--muted);background:rgba(10,12,16,.3);border:1px solid transparent;border-radius:7px;padding:0;font-size:15px;line-height:28px;cursor:pointer;touch-action:manipulation}
+  .card:hover .del,.card:hover .edit,.card:hover .dup{opacity:1}
+  .card .edit:hover,.card .dup:hover{color:var(--accent);border-color:rgba(76,141,255,.45);background:rgba(76,141,255,.1)}
   .card .del:hover{color:var(--bad)}
   .empty{color:var(--muted);font-size:12px;text-align:center;padding:20px 8px}
   main{grid-column:2;grid-row:2;overflow:auto;padding:22px;min-width:0}
@@ -138,8 +138,8 @@
   .workspace-port:hover,.workspace-port.target{opacity:.95;transform:translate(-50%,-50%) scale(1.2)}
   .workspace-port.selected{width:18px;height:18px;opacity:.95;box-shadow:0 0 0 3px rgba(76,141,255,.5),0 0 14px #fff}
   .system-canvas.cable-target-search .rack-port:not(.compatible-target):not(.cable-source),.system-canvas.cable-target-search .workspace-port:not(.compatible-target):not(.cable-source){opacity:.12;filter:saturate(.35)}
-  .system-canvas.cable-target-search .rack-port.compatible-target,.system-canvas.cable-target-search .workspace-port.compatible-target{width:16px;height:16px;opacity:1;transform:translate(-50%,-50%) scale(1.35);box-shadow:0 0 0 4px rgba(255,255,255,.3),0 0 18px 3px currentColor;filter:none}
-  .system-canvas.cable-target-search .rack-port.cable-source,.system-canvas.cable-target-search .workspace-port.cable-source{opacity:1;transform:translate(-50%,-50%) scale(1.28);box-shadow:0 0 0 4px rgba(255,255,255,.28),0 0 16px currentColor;filter:none}
+  .system-canvas.cable-target-search .rack-port.compatible-target,.system-canvas.cable-target-search .workspace-port.compatible-target{width:16px;height:16px;opacity:1;transform:translate(-50%,-50%) scale(1.22);box-shadow:0 0 0 2px rgba(255,255,255,.2),0 0 6px 1px currentColor;filter:none}
+  .system-canvas.cable-target-search .rack-port.cable-source,.system-canvas.cable-target-search .workspace-port.cable-source{opacity:1;transform:translate(-50%,-50%) scale(1.18);box-shadow:0 0 0 2px rgba(255,255,255,.18),0 0 5px currentColor;filter:none}
   .cross-cable-layer{z-index:25!important}
   .external-drop-hint{position:absolute;border:2px dashed var(--ok);border-radius:9px;background:rgba(62,207,142,.14);pointer-events:none;z-index:20}
   .rack-col{position:absolute;padding:0 8px 4px}
@@ -235,8 +235,10 @@
   .crop-stage{position:relative;flex:none;background:#000;border-radius:8px;overflow:hidden;touch-action:none;box-shadow:0 10px 32px rgba(0,0,0,.55)}
   .crop-stage img{display:block;user-select:none;-webkit-user-drag:none;pointer-events:none}
   .crop-stage svg{position:absolute;inset:0;pointer-events:none}
-  .crop-poly{fill:rgba(76,141,255,.14);stroke:var(--accent);stroke-width:1.5;stroke-dasharray:5 4;pointer-events:none}
-  .crop-h{fill:#fff;stroke:var(--accent);stroke-width:2;cursor:grab;pointer-events:auto}
+  #cropWorld{position:absolute;top:0;left:0;transform-origin:0 0;will-change:transform}
+  #cropStage{cursor:grab}#cropStage.panning{cursor:grabbing}
+  .crop-poly{fill:rgba(76,141,255,.14);stroke:var(--accent);stroke-width:1.5;stroke-dasharray:5 4;pointer-events:none;vector-effect:non-scaling-stroke}
+  .crop-h{fill:#fff;stroke:var(--accent);stroke-width:2;cursor:grab;pointer-events:auto;vector-effect:non-scaling-stroke}
   .crop-h:active{cursor:grabbing}
   .crop-side{width:240px;flex:none}
   .crop-side .plabel{font-size:12px;color:var(--muted);margin-bottom:6px}
@@ -498,6 +500,7 @@
     <h2>Perspective correction — drag the four handles onto the panel corners</h2>
     <div class="crop-main">
       <div class="crop-stage" id="cropStage">
+        <div id="cropWorld">
         <img id="cropImg" alt="">
         <svg id="cropSvg" xmlns="http://www.w3.org/2000/svg">
           <polygon class="crop-poly" id="cropPoly" points=""></polygon>
@@ -506,11 +509,12 @@
           <circle class="crop-h" id="ch2" r="11"></circle>
           <circle class="crop-h" id="ch3" r="11"></circle>
         </svg>
+        </div>
       </div>
       <div class="crop-side">
         <div class="plabel">Preview</div>
         <div class="crop-preview" id="cropPreview"></div>
-        <div class="crop-tip">Drag a corner to open the magnifier. White or transparent outer background is removed automatically after applying.</div>
+        <div class="crop-tip">Drag a corner to open the magnifier. Scroll to zoom · drag the image to pan. White or transparent outer background is removed automatically after applying.</div>
       </div>
     </div>
     <div class="crop-actions">
@@ -1083,8 +1087,10 @@ function renderLib(){
     const widthTag=g.width==='half'?' · half-width':'';
     const c=document.createElement('div'); c.className='card';
     const dimensions=external&&g.externalWidth&&g.externalHeight?' · '+g.externalWidth+'×'+g.externalHeight+'mm':'';
-    c.innerHTML='<div class="thumb" '+(thumb?'style="background-image:url(\''+thumb+'\')"':'')+'>'+(thumb?'':external?'EXT':g.he+'U')+'</div><div class="meta"><div class="nm">'+escapeHtml(g.name)+'</div><div class="sub">'+(external?'External'+dimensions:(g.he+'U'+widthTag+mountTag))+(g.weight?' · '+g.weight+'kg':'')+(g.depth?' · '+g.depth+'mm':'')+'</div></div><button type="button" class="edit" aria-label="Edit '+escapeAttr(g.name)+'" title="Edit">✎</button><button type="button" class="del" aria-label="Remove '+escapeAttr(g.name)+' from library" title="Remove from library">✕</button>';
-    const editButton=c.querySelector('.edit'),deleteButton=c.querySelector('.del');
+    c.innerHTML='<div class="thumb" '+(thumb?'style="background-image:url(\''+thumb+'\')"':'')+'>'+(thumb?'':external?'EXT':g.he+'U')+'</div><div class="meta"><div class="nm">'+escapeHtml(g.name)+'</div><div class="sub">'+(external?'External'+dimensions:(g.he+'U'+widthTag+mountTag))+(g.weight?' · '+g.weight+'kg':'')+(g.depth?' · '+g.depth+'mm':'')+'</div></div><button type="button" class="dup" aria-label="Duplicate '+escapeAttr(g.name)+'" title="Duplicate">⧉</button><button type="button" class="edit" aria-label="Edit '+escapeAttr(g.name)+'" title="Edit">✎</button><button type="button" class="del" aria-label="Remove '+escapeAttr(g.name)+' from library" title="Remove from library">✕</button>';
+    const editButton=c.querySelector('.edit'),deleteButton=c.querySelector('.del'),dupButton=c.querySelector('.dup');
+    dupButton.addEventListener('pointerdown',ev=>ev.stopPropagation());
+    dupButton.addEventListener('click',ev=>{ ev.preventDefault(); ev.stopPropagation(); const copy=JSON.parse(JSON.stringify(g)); copy.id=uid(); copy.name=(g.name+' copy').slice(0,80); const idx=state.library.findIndex(x=>x.id===g.id); state.library.splice(idx<0?state.library.length:idx+1,0,copy); save(); queuePermanentLibrarySave(); renderLib(); });
     editButton.addEventListener('pointerdown',ev=>{ev.stopPropagation();});
     editButton.addEventListener('pointerup',ev=>{ev.preventDefault();ev.stopPropagation();openModal(g);});
     editButton.addEventListener('click',ev=>{ev.preventDefault();ev.stopPropagation();if(ev.detail===0)openModal(g);});
@@ -1793,7 +1799,10 @@ document.getElementById('btnImport').addEventListener('click',()=>document.getEl
 document.getElementById('importFile').addEventListener('change',e=>{ const f=e.target.files[0]; if(!f)return; const r=new FileReader(); r.onload=()=>{ try{ const d=JSON.parse(r.result); if(!d.racks||!d.racks.length)throw 0; const permanentLibrary=mergeLibraries(state.library,d.library); state=normalizeState({...d,library:permanentLibrary}); projectMeta={id:null,name:f.name.replace(/\.rack\.json$|\.json$/i,'')||'Imported project',updatedAt:null,dirty:false}; refreshAppFromState(); save(false); queuePermanentLibrarySave(0); }catch(err){alert('Invalid file.');} }; r.readAsText(f); e.target.value=''; });
 
 /* ---- crop / perspective rectify ---- */
-let crop={slot:null,scale:1,dispW:0,dispH:0,natW:0,natH:0,srcCanvas:null,pts:[],dragI:-1};
+let crop={slot:null,scale:1,dispW:0,dispH:0,natW:0,natH:0,srcCanvas:null,pts:[],dragI:-1,zoom:1,panX:0,panY:0};
+function applyCropView(){ const w=document.getElementById('cropWorld'); if(w)w.style.transform='translate('+crop.panX+'px,'+crop.panY+'px) scale('+crop.zoom+')'; }
+function clampCropPan(){ const sw=crop.dispW,sh=crop.dispH,scW=sw*crop.zoom,scH=sh*crop.zoom; crop.panX=scW<=sw?(sw-scW)/2:Math.min(0,Math.max(sw-scW,crop.panX)); crop.panY=scH<=sh?(sh-scH)/2:Math.min(0,Math.max(sh-scH,crop.panY)); }
+function setCropZoom(nz,cx,cy){ nz=Math.max(1,Math.min(8,Math.round(nz*100)/100)); const old=crop.zoom; if(nz===old)return; if(cx==null){cx=crop.dispW/2;cy=crop.dispH/2;} const contentX=(cx-crop.panX)/old,contentY=(cy-crop.panY)/old; crop.zoom=nz; crop.panX=cx-contentX*nz; crop.panY=cy-contentY*nz; clampCropPan(); applyCropView(); drawCorners(); }
 function openCrop(slot){
   if(!photos[slot]){ alert('Add a photo to this slot first.'); return; }
   const img=new Image(); img.crossOrigin='anonymous';
@@ -1811,6 +1820,8 @@ function openCrop(slot){
     const stage=document.getElementById('cropStage'); stage.style.width=crop.dispW+'px'; stage.style.height=crop.dispH+'px';
     const im=document.getElementById('cropImg'); im.src=sc.toDataURL('image/png'); im.style.width=crop.dispW+'px'; im.style.height=crop.dispH+'px';
     const svg=document.getElementById('cropSvg'); svg.setAttribute('viewBox','0 0 '+crop.dispW+' '+crop.dispH); svg.style.width=crop.dispW+'px'; svg.style.height=crop.dispH+'px';
+    const world=document.getElementById('cropWorld'); world.style.width=crop.dispW+'px'; world.style.height=crop.dispH+'px';
+    crop.zoom=1; crop.panX=0; crop.panY=0; applyCropView();
     resetCorners(); document.getElementById('cropBg').classList.add('open'); updatePreview();
   };
   img.onerror=()=>alert('Could not load the photo.');
@@ -1822,12 +1833,13 @@ function resetCorners(){
   drawCorners();
 }
 function drawCorners(){
-  for(let i=0;i<4;i++){ const c=document.getElementById('ch'+i); c.setAttribute('cx',crop.pts[i][0]); c.setAttribute('cy',crop.pts[i][1]); }
+  const rr=(11/(crop.zoom||1)).toFixed(2);
+  for(let i=0;i<4;i++){ const c=document.getElementById('ch'+i); c.setAttribute('cx',crop.pts[i][0]); c.setAttribute('cy',crop.pts[i][1]); c.setAttribute('r',rr); }
   document.getElementById('cropPoly').setAttribute('points',crop.pts.map(p=>p[0]+','+p[1]).join(' '));
 }
 function cornerMove(ev){
-  const r=document.getElementById('cropStage').getBoundingClientRect();
-  const x=Math.max(0,Math.min(crop.dispW,ev.clientX-r.left)), y=Math.max(0,Math.min(crop.dispH,ev.clientY-r.top));
+  const r=document.getElementById('cropSvg').getBoundingClientRect();
+  const x=Math.max(0,Math.min(crop.dispW,(ev.clientX-r.left)/r.width*crop.dispW)), y=Math.max(0,Math.min(crop.dispH,(ev.clientY-r.top)/r.height*crop.dispH));
   crop.pts[crop.dragI]=[x,y]; drawCorners(); updateLoupe(ev,x,y);
 }
 function updateLoupe(ev,x,y){
@@ -1846,6 +1858,11 @@ function updateLoupe(ev,x,y){
 }
 function cornerUp(){ window.removeEventListener('pointermove',cornerMove); window.removeEventListener('pointerup',cornerUp); window.removeEventListener('pointercancel',cornerUp); document.getElementById('cropLoupe').classList.remove('open'); crop.dragI=-1; updatePreview(); }
 document.querySelectorAll('#cropSvg .crop-h').forEach((c,i)=>c.addEventListener('pointerdown',ev=>{ ev.preventDefault(); crop.dragI=i; updateLoupe(ev,crop.pts[i][0],crop.pts[i][1]); window.addEventListener('pointermove',cornerMove); window.addEventListener('pointerup',cornerUp); window.addEventListener('pointercancel',cornerUp); }));
+let cropPan=null;
+function moveCropPan(ev){ if(!cropPan)return; ev.preventDefault(); crop.panX=cropPan.panX+(ev.clientX-cropPan.x); crop.panY=cropPan.panY+(ev.clientY-cropPan.y); clampCropPan(); applyCropView(); }
+function endCropPan(){ if(!cropPan)return; window.removeEventListener('pointermove',moveCropPan); window.removeEventListener('pointerup',endCropPan); window.removeEventListener('pointercancel',endCropPan); cropPan=null; document.getElementById('cropStage').classList.remove('panning'); }
+document.getElementById('cropStage').addEventListener('pointerdown',ev=>{ if(ev.target.closest('.crop-h'))return; if(ev.button!==0&&ev.button!==1)return; ev.preventDefault(); cropPan={x:ev.clientX,y:ev.clientY,panX:crop.panX,panY:crop.panY}; document.getElementById('cropStage').classList.add('panning'); window.addEventListener('pointermove',moveCropPan); window.addEventListener('pointerup',endCropPan); window.addEventListener('pointercancel',endCropPan); });
+document.getElementById('cropStage').addEventListener('wheel',ev=>{ ev.preventDefault(); const r=ev.currentTarget.getBoundingClientRect(); setCropZoom(crop.zoom*(ev.deltaY<0?1.2:1/1.2), ev.clientX-r.left, ev.clientY-r.top); },{passive:false});
 function warpToCanvas(){
   const P=crop.pts.map(p=>[p[0]/crop.scale,p[1]/crop.scale]);
   const p0=P[0],p1=P[1],p2=P[2],p3=P[3];
