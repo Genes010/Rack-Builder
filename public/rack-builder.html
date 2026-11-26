@@ -160,18 +160,9 @@
   .rack-head .rmrack:hover{color:var(--bad)}
   .rack-move-handle{width:28px;height:28px;padding:0;display:flex;align-items:center;justify-content:center;cursor:grab;color:#9aa5b8;background:#20242c}.rack-move-handle:active{cursor:grabbing}.rack-col.moving{z-index:30}.rack-col.moving .rack-flightcase{box-shadow:0 0 0 2px rgba(76,141,255,.65),0 28px 70px rgba(0,0,0,.8),inset 0 0 0 2px #272b2f}
   .rack-scale-shell{position:relative;overflow:visible}
-  .rack-flightcase{position:absolute;left:0;top:0;transform:scale(var(--rack-zoom,1));transform-origin:top left;padding:40px 38px 55px;border-radius:5px;background:linear-gradient(105deg,rgba(255,255,255,.035),transparent 24%),repeating-linear-gradient(0deg,#111317 0 3px,#0a0c0f 3px 6px);border:1px solid #030405;box-shadow:0 24px 58px rgba(0,0,0,.75),inset 0 0 0 2px #272b2f}
-  .rack-flightcase:before{content:'';position:absolute;left:8px;right:8px;top:7px;height:27px;border:1px solid #343a3f;border-radius:3px;background:linear-gradient(180deg,#f1f3f4 0,#a9afb4 17%,#60676d 38%,#d7dbde 55%,#777e84 72%,#343a3f 100%);box-shadow:inset 0 2px 0 rgba(255,255,255,.65),inset 0 -3px 0 rgba(31,35,38,.8),0 3px 5px rgba(0,0,0,.55);z-index:2}
-  .rack-flightcase:after{content:'';position:absolute;left:8px;right:8px;bottom:17px;height:30px;border:1px solid #343a3f;border-radius:3px;background:linear-gradient(180deg,#edf0f1 0,#9da4aa 16%,#555c62 36%,#d3d7da 53%,#747b81 72%,#30363b 100%);box-shadow:inset 0 2px 0 rgba(255,255,255,.58),inset 0 -3px 0 #22262a,0 -2px 5px rgba(0,0,0,.45);z-index:2}
-  .rack-case-side{position:absolute;top:34px;bottom:46px;width:28px;border:1px solid #343a3f;border-radius:2px;background:linear-gradient(90deg,#3b4146 0,#cfd3d6 17%,#7a8187 34%,#f0f2f3 49%,#8b9298 67%,#3a4045 100%);box-shadow:inset 2px 0 0 rgba(255,255,255,.45),inset -2px 0 0 rgba(20,23,25,.75),0 0 5px rgba(0,0,0,.5);z-index:2;pointer-events:none}
-  .rack-case-side.left{left:7px}.rack-case-side.right{right:7px}
-  .rack-case-side:before{content:'';position:absolute;top:8px;bottom:8px;left:9px;width:7px;border-left:1px solid rgba(33,37,40,.65);border-right:1px solid rgba(255,255,255,.42);background:linear-gradient(90deg,#676e74,#bec3c7 50%,#545b61)}
-  .rack-case-side:after{content:'';position:absolute;inset:12px 5px;background:radial-gradient(circle,#e7e9ea 0 1.2px,#555c62 1.5px 2.3px,transparent 2.5px) 50% 0/8px 58px repeat-y;opacity:.85}
-  .rack-corner{position:absolute;width:34px;height:34px;border:1px solid #5d646a;background:radial-gradient(circle at 11px 11px,#f5f6f7 0 1.5px,#565d63 2px 3px,transparent 3.5px),linear-gradient(135deg,#eef0f1 0,#aeb4b9 28%,#62696f 58%,#d2d6d9 76%,#3f454a 100%);z-index:5;pointer-events:none;box-shadow:inset 2px 2px 2px rgba(255,255,255,.65),inset -3px -3px 4px rgba(17,19,21,.55),0 2px 4px rgba(0,0,0,.6)}
-  .rack-corner.tl{top:3px;left:3px;border-radius:15px 3px 5px 3px}.rack-corner.tr{top:3px;right:3px;border-radius:3px 15px 3px 5px}.rack-corner.bl{bottom:14px;left:3px;border-radius:3px 5px 3px 15px}.rack-corner.br{bottom:14px;right:3px;border-radius:5px 3px 15px 3px}
-  .rack-rivets{position:absolute;left:42px;right:42px;top:17px;height:6px;background:radial-gradient(circle,#f1f2f3 0 1.2px,#5c6369 1.5px 2.3px,transparent 2.5px) 0 0/42px 6px repeat-x;opacity:.9;pointer-events:none;z-index:5}
-  .rack-shock{display:none}
-  .rack{position:relative;display:flex;background:var(--rail);border:4px solid #090b0d;border-radius:1px;padding:6px;box-shadow:0 0 0 2px #41474c,0 0 0 7px #090b0d,inset 0 0 10px #000,0 12px 28px rgba(0,0,0,.58);z-index:3}
+  .rack-flightcase{position:absolute;left:0;top:0;transform:scale(var(--rack-zoom,1));transform-origin:top left;padding:0;border-radius:3px}
+  .rack-flightcase:before,.rack-flightcase:after,.rack-case-side,.rack-corner,.rack-rivets,.rack-shock{display:none}
+  .rack{position:relative;display:flex;background:var(--rail);border:4px solid #090b0d;border-radius:3px;padding:6px;box-shadow:0 0 0 2px #41474c,0 0 0 5px #090b0d,inset 0 0 10px #000,0 12px 28px rgba(0,0,0,.58);z-index:3}
   .rack.back{background:#0b0d11}
   .nums{display:flex;flex-direction:column-reverse;width:24px;flex:none}
   .nums .n{height:var(--u);display:flex;align-items:center;justify-content:center;color:#5a5f6c;font-size:10px;font-variant-numeric:tabular-nums;border-right:1px dashed #23262e}
@@ -924,6 +915,9 @@ function rackLayoutMetrics(){
   const height=Math.max(900,...state.racks.map(r=>34+Math.ceil((r.layoutY+r.he*U+170)*state.zoom)+110));
   return{logicalWidth,width,height};
 }
+// Bottom-align racks of different heights: shorter racks drop down so all bases line up.
+function rackBaseHe(){ return state.racks.length?Math.max(...state.racks.map(r=>r.he||0)):0; }
+function rackTopOffset(rack){ return Math.max(0,(rackBaseHe()-(rack.he||0))*U); }
 function startRackLayoutDrag(event,rack,col,row,canvas){
   if(event.button!==0)return;event.preventDefault();event.stopPropagation();
   const handle=event.currentTarget;handle.setPointerCapture?.(event.pointerId);col.classList.add('moving');
@@ -932,7 +926,7 @@ function startRackLayoutDrag(event,rack,col,row,canvas){
 }
 function moveRackLayout(event){
   if(!rackLayoutDrag)return;event.preventDefault();const d=rackLayoutDrag,scale=state.zoom||1,x=Math.max(0,Math.round((d.startX+(event.clientX-d.startClientX)/scale)/10)*10),y=Math.max(0,Math.round((d.startY+(event.clientY-d.startClientY)/scale)/10)*10);
-  d.rack.layoutX=x;d.rack.layoutY=y;d.col.style.left=(x*scale)+'px';d.col.style.top=(y*scale+34)+'px';
+  d.rack.layoutX=x;d.rack.layoutY=y;d.col.style.left=(x*scale)+'px';d.col.style.top=((y+rackTopOffset(d.rack))*scale+34)+'px';
   const metrics=rackLayoutMetrics();d.row.style.width=metrics.width+'px';d.row.style.height=metrics.height+'px';d.canvas.style.width=metrics.width+'px';
   if(!rackLayoutWireFrame)rackLayoutWireFrame=requestAnimationFrame(()=>{rackLayoutWireFrame=0;d.canvas.querySelector('.cross-cable-layer')?.remove();renderCrossCableLayer(d.canvas,state.view);});
 }
@@ -950,7 +944,7 @@ function renderRacks(){
   const rackRow=document.createElement('div');rackRow.className='rack-row';rackRow.style.width=canvasWidth+'px';rackRow.style.height=metrics.height+'px';
   canvas.appendChild(renderExternalWorkspace(metrics.logicalWidth,view));canvas.appendChild(rackRow);racksEl.appendChild(canvas);
   for(const rack of state.racks){
-    const col=document.createElement('div'); col.className='rack-col';col.style.left=(rack.layoutX*state.zoom)+'px';col.style.top=(rack.layoutY*state.zoom+34)+'px';col.dataset.rackId=rack.id;
+    const col=document.createElement('div'); col.className='rack-col';col.style.left=(rack.layoutX*state.zoom)+'px';col.style.top=((rack.layoutY+rackTopOffset(rack))*state.zoom+34)+'px';col.dataset.rackId=rack.id;
     const head=document.createElement('div'); head.className='rack-head';
     head.innerHTML='<button type="button" class="rack-move-handle" title="Drag to position this rack">⠿</button><input class="rn" value="'+escapeAttr(rack.name)+'" title="Rack name" aria-label="Rack name">';
     head.querySelector('.rack-move-handle').addEventListener('pointerdown',event=>startRackLayoutDrag(event,rack,col,rackRow,canvas));
@@ -996,7 +990,6 @@ function renderRacks(){
     renderCableLayer(bay,rack,view);
     rk.appendChild(nums); rk.appendChild(bay);
     const flightcase=document.createElement('div'); flightcase.className='rack-flightcase';
-    flightcase.innerHTML='<span class="rack-case-side left"></span><span class="rack-case-side right"></span><span class="rack-corner tl"></span><span class="rack-corner tr"></span><span class="rack-corner bl"></span><span class="rack-corner br"></span><span class="rack-rivets"></span><span class="rack-shock left top"></span><span class="rack-shock left bottom"></span><span class="rack-shock right top"></span><span class="rack-shock right bottom"></span>';
     flightcase.appendChild(rk);const rackScale=document.createElement('div');rackScale.className='rack-scale-shell';rackScale.appendChild(flightcase);col.appendChild(rackScale);
 
     rackRow.appendChild(col);const naturalRackWidth=flightcase.offsetWidth||574,naturalRackHeight=flightcase.offsetHeight||(rack.he*U+117);rackScale.style.width=Math.ceil(naturalRackWidth*state.zoom)+'px';rackScale.style.height=Math.ceil(naturalRackHeight*state.zoom)+'px';
@@ -1323,7 +1316,9 @@ function applyConnectorView(){ connectorStage.style.transform='translate('+conne
 function clampConnectorPan(){ const v=connectorView,scW=v.sw*v.zoom,scH=v.sh*v.zoom; v.panX=scW<=v.vw?(v.vw-scW)/2:Math.min(0,Math.max(v.vw-scW,v.panX)); v.panY=scH<=v.vh?(v.vh-scH)/2:Math.min(0,Math.max(v.vh-scH,v.panY)); }
 function setConnectorZoom(nz,cx,cy){ const v=connectorView; nz=Math.max(1,Math.min(10,Math.round(nz*100)/100)); const old=v.zoom; if(nz===old)return; if(cx==null){cx=v.vw/2;cy=v.vh/2;} const contentX=(cx-v.panX)/old,contentY=(cy-v.panY)/old; v.zoom=nz; v.panX=cx-contentX*nz; v.panY=cy-contentY*nz; clampConnectorPan(); applyConnectorView(); }
 function initConnectorView(){ const canvas=connectorStage.parentElement,v=connectorView; v.vw=canvas.clientWidth; v.vh=canvas.clientHeight; v.sw=connectorImg.offsetWidth||connectorStage.offsetWidth; v.sh=connectorImg.offsetHeight||connectorStage.offsetHeight; v.zoom=1; v.panX=0; v.panY=0; clampConnectorPan(); applyConnectorView(); }
-function addConnectorAt(e){ const rect=connectorImg.getBoundingClientRect(); if(e.clientX<rect.left||e.clientX>rect.right||e.clientY<rect.top||e.clientY>rect.bottom)return; const number=draftConnectors[connectorSlot].length+1; draftConnectors[connectorSlot].push({id:uid(),name:'Port '+number,type:connectorDefaults.type,direction:connectorDefaults.direction,x:(e.clientX-rect.left)/rect.width,y:(e.clientY-rect.top)/rect.height}); renderConnectorMarkers(); renderConnectorList(); }
+function connectorDirLabel(dir){ return dir==='input'?'Input':dir==='output'?'Output':'Bidirectional'; }
+function nextConnectorName(slot,dir){ const base=connectorDirLabel(dir); const n=draftConnectors[slot].filter(c=>(c.direction||'bidirectional')===dir).length+1; return base+' '+n; }
+function addConnectorAt(e){ const rect=connectorImg.getBoundingClientRect(); if(e.clientX<rect.left||e.clientX>rect.right||e.clientY<rect.top||e.clientY>rect.bottom)return; draftConnectors[connectorSlot].push({id:uid(),name:nextConnectorName(connectorSlot,connectorDefaults.direction),type:connectorDefaults.type,direction:connectorDefaults.direction,x:(e.clientX-rect.left)/rect.width,y:(e.clientY-rect.top)/rect.height}); renderConnectorMarkers(); renderConnectorList(); }
 function syncConnectorDefaults(){connectorDefaultType.value=connectorDefaults.type;connectorDefaultDirection.value=connectorDefaults.direction;}
 function renderConnectorMarkers(){
   connectorStage.querySelectorAll('.connector-marker').forEach(m=>m.remove());
