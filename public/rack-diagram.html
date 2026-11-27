@@ -38,7 +38,7 @@
 <div class="export-bg" id="pngExportBg"><div class="export-box"><h2>Export diagram as PNG</h2><p>Choose the exact image resolution and how large the diagram should appear inside it.</p><div class="export-grid"><label>Width (px)<input id="pngWidth" type="number" min="320" max="8000" step="10" value="3840"></label><label>Height (px)<input id="pngHeight" type="number" min="240" max="8000" step="10" value="2160"></label><label>Diagram scale (%)<input id="pngScale" type="number" min="25" max="200" step="5" value="90"></label></div><div class="export-actions"><button type="button" id="pngCancel">Cancel</button><button type="button" class="primary" id="pngDownload">Download PNG</button></div></div></div>
 <script>
 "use strict";
-const LS_KEY='rackBuilder.v2',W=250,HEADER=44,ROW=23,WORLD_W=8000,WORLD_H=8000,ROUTE_VERSION=6,LANE_GAP=16,ESCAPE_GAP=14;
+const LS_KEY='rackBuilder.v2',W=250,HEADER=44,ROW=23,WORLD_W=8000,WORLD_H=8000,ROUTE_VERSION=7,LANE_GAP=16,ESCAPE_GAP=14;
 let state=null,side='back',zoom=1,selectedCable=null,selectedNodes=new Set(),selectedBends=new Set(),nodeDrag=null,nodeWireFrame=0,bendDrag=null,newWire=null,middlePan=null,lasso=null,scrollAnimation=0,scrollTargetX=0,scrollTargetY=0,renderedWireViews=[],renderedBendViews=[];
 const world=document.getElementById('world'),wires=document.getElementById('wires'),nodes=document.getElementById('nodes'),statusEl=document.getElementById('status'),viewport=document.getElementById('viewport');
 const gearById=id=>state.library.find(g=>g.id===id)||null;
@@ -91,20 +91,32 @@ function routePoints(a,b,index,count){
   return[{x:escapeFrom,y:a.y},{x:escapeFrom,y:routeY},{x:escapeTo,y:routeY},{x:escapeTo,y:b.y}];
 }
 function pointsMatch(a,b){return Array.isArray(a)&&a.length===b.length&&a.every((p,i)=>Math.abs(p.x-b[i].x)<.1&&Math.abs(p.y-b[i].y)<.1);}
-// Orthogonal routing: every auto-routed cable gets its own vertical lane, chosen
-// so that no two cables share a vertical line where their spans overlap. This keeps
-// connections from ever lying parallel on top of one another, regardless of which
-// devices they run between.
+function nodeRects(){return placements().map(item=>{const pos=positionFor(item.p.uid);return{x:pos.x,y:pos.y,w:W,h:nodeHeight(item.gear)};});}
+// Find a horizontal band (y) free of any card across [x1,x2], nearest the midpoint of
+// ya/yb, so a cable can cross between gutters through the gap between cards instead of
+// disappearing behind one.
+function crossingBand(rects,x1,x2,ya,yb){
+  const lo=Math.min(x1,x2),hi=Math.max(x1,x2),mid=(ya+yb)/2;
+  const blocked=rects.filter(r=>r.x<hi&&r.x+r.w>lo).map(r=>[r.y-10,r.y+r.h+10]);
+  const inBlocked=y=>blocked.some(iv=>y>=iv[0]&&y<=iv[1]);
+  if(!inBlocked(mid))return mid;
+  for(let d=10;d<6000;d+=10){if(!inBlocked(mid+d))return mid+d;if(!inBlocked(mid-d))return mid-d;}
+  return mid;
+}
+// Orthogonal routing. Every auto-routed cable travels in the gutters beside the cards
+// and crosses between them only through the free gaps, so a cable is never hidden behind
+// a card, and each gets its own vertical lane so no two ever lie on top of one another.
 function routeVisibleCables(force=false){
-  const items=[];let changed=false;
+  const rects=nodeRects(),items=[];let changed=false;
   cableRecords().filter(record=>record.cable.view===side).forEach(record=>{
     const cable=record.cable,a=recordEndpoint(record,'from'),b=recordEndpoint(record,'to');if(!a||!b)return;
     const needsUpgrade=cable.diagramRouteVersion!==ROUTE_VERSION;
     if((force||needsUpgrade)&&cable.diagramManual){cable.diagramManual=false;changed=true;}
     if(needsUpgrade){cable.diagramRouteVersion=ROUTE_VERSION;changed=true;}
     if(force||needsUpgrade||!cable.diagramManual){
-      const exitA=a.x+(a.side==='right'?ESCAPE_GAP:-ESCAPE_GAP),exitB=b.x+(b.side==='right'?ESCAPE_GAP:-ESCAPE_GAP);
-      items.push({cable,a,b,baseX:Math.round((exitA+exitB)/2),minY:Math.min(a.y,b.y),maxY:Math.max(a.y,b.y)});
+      const xa=a.x+(a.side==='right'?ESCAPE_GAP:-ESCAPE_GAP),xb=b.x+(b.side==='right'?ESCAPE_GAP:-ESCAPE_GAP);
+      const sameSide=a.side===b.side&&Math.abs(xa-xb)<W;
+      items.push({cable,a,b,xa,xb,sameSide,baseX:sameSide?Math.round((xa+xb)/2):xa,minY:Math.min(a.y,b.y),maxY:Math.max(a.y,b.y)});
     }
   });
   items.sort((p,q)=>p.baseX-q.baseX||p.minY-q.minY);
@@ -114,7 +126,9 @@ function routeVisibleCables(force=false){
     let x=item.baseX;
     if(conflict(x)){let k=1;while(k<=600){const right=x+k*LANE_GAP;if(!conflict(right)){x=right;break;}const left=x-k*LANE_GAP;if(!conflict(left)){x=left;break;}k++;}}
     placed.push({x,minY:item.minY,maxY:item.maxY});
-    const next=[{x,y:item.a.y},{x,y:item.b.y}];
+    let next;
+    if(item.sameSide){next=[{x,y:item.a.y},{x,y:item.b.y}];}
+    else{const yc=crossingBand(rects,x,item.xb,item.a.y,item.b.y);next=[{x,y:item.a.y},{x,y:yc},{x:item.xb,y:yc},{x:item.xb,y:item.b.y}];}
     if(!pointsMatch(item.cable.diagramPoints,next)){item.cable.diagramPoints=next;changed=true;}
   });
   return changed;
