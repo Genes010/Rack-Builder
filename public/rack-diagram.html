@@ -232,8 +232,10 @@ document.getElementById('side').addEventListener('change',e=>{side=e.target.valu
 document.getElementById('route').addEventListener('click',()=>{const hasManual=cableRecords().some(record=>record.cable.view===side&&record.cable.diagramManual);if(hasManual&&!confirm('Replace manual cable bends on this side with evenly spaced automatic routes?'))return;routeVisibleCables(true);selectedCable=null;selectedBends.clear();save();renderWires();});
 viewport.addEventListener('wheel',e=>{
   e.preventDefault();
-  if(e.altKey||e.ctrlKey){stopSmoothScroll();const rect=viewport.getBoundingClientRect(),anchorX=e.clientX-rect.left,anchorY=e.clientY-rect.top,worldX=(viewport.scrollLeft+anchorX)/zoom,worldY=(viewport.scrollTop+anchorY)/zoom,next=Math.max(.5,Math.min(2,Math.round((zoom+(e.deltaY<0?.1:-.1))*10)/10));if(next===zoom)return;zoom=next;applyZoom();viewport.scrollLeft=worldX*zoom-anchorX;viewport.scrollTop=worldY*zoom-anchorY;syncScrollTargets();return;}
-  if(middlePan)return;const factor=e.deltaMode===1?18:e.deltaMode===2?viewport.clientHeight:1,horizontal=e.shiftKey&&Math.abs(e.deltaX)<Math.abs(e.deltaY),dx=(horizontal?e.deltaY:e.deltaX)*factor,dy=(horizontal?0:e.deltaY)*factor;queueSmoothScroll(dx,dy);
+  if(middlePan)return;
+  // Mouse wheel zooms, centred on the cursor (hold Shift to scroll instead).
+  if(!e.shiftKey){stopSmoothScroll();const rect=viewport.getBoundingClientRect(),anchorX=e.clientX-rect.left,anchorY=e.clientY-rect.top,worldX=(viewport.scrollLeft+anchorX)/zoom,worldY=(viewport.scrollTop+anchorY)/zoom,next=Math.max(.5,Math.min(2,Math.round((zoom+(e.deltaY<0?.1:-.1))*10)/10));if(next===zoom)return;zoom=next;applyZoom();viewport.scrollLeft=worldX*zoom-anchorX;viewport.scrollTop=worldY*zoom-anchorY;syncScrollTargets();return;}
+  const factor=e.deltaMode===1?18:e.deltaMode===2?viewport.clientHeight:1;queueSmoothScroll(e.deltaX*factor,e.deltaY*factor);
 },{passive:false});
 viewport.addEventListener('pointerdown',startMiddlePan,true);viewport.addEventListener('auxclick',e=>{if(e.button===1)e.preventDefault();});viewport.addEventListener('scroll',()=>{if(!scrollAnimation&&!middlePan)syncScrollTargets();},{passive:true});syncScrollTargets();
 world.addEventListener('pointerdown',startLasso);
