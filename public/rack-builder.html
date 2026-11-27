@@ -803,6 +803,27 @@ function cableEndpoint(rack,endpoint,view){
   return {x:left+Number(connector.x||0)*unitW,y:placement.top*U+Number(connector.y||0)*gear.he*U,connector,placement,gear};
 }
 function cablePathD(a,points,b){ return 'M '+a.x+' '+a.y+' '+(points||[]).map(p=>'L '+p.x+' '+p.y+' ').join('')+'L '+b.x+' '+b.y; }
+// Fan out cables that would otherwise lie parallel on top of each other: cables whose
+// straight run shares a corridor (similar midpoint + angle) each get a distinct sideways
+// bow offset, so you can always tell which port connects to which.
+function cableFanOffsets(segments,grid,angStep,spacing){
+  const groups={},offsets=new Array(segments.length).fill(0);
+  segments.forEach((s,i)=>{ if(!s)return; const mx=(s.a.x+s.b.x)/2,my=(s.a.y+s.b.y)/2; let ang=Math.atan2(s.b.y-s.a.y,s.b.x-s.a.x)*180/Math.PI; ang=((ang%180)+180)%180; const key=Math.round(mx/grid)+'|'+Math.round(my/grid)+'|'+Math.round(ang/angStep); (groups[key]||(groups[key]=[])).push(i); });
+  Object.values(groups).forEach(idxs=>{ const n=idxs.length; if(n<2)return; idxs.forEach((idx,k)=>{ offsets[idx]=(k-(n-1)/2)*spacing; }); });
+  return offsets;
+}
+function cableCurveD(a,b,offset){
+  if(!offset) return 'M '+a.x+' '+a.y+' L '+b.x+' '+b.y;
+  const dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy)||1,px=-dy/len,py=dx/len;
+  const c1x=a.x+dx/3+px*offset,c1y=a.y+dy/3+py*offset,c2x=a.x+dx*2/3+px*offset,c2y=a.y+dy*2/3+py*offset;
+  return 'M '+a.x+' '+a.y+' C '+c1x+' '+c1y+' '+c2x+' '+c2y+' '+b.x+' '+b.y;
+}
+function cableCurveMid(a,b,offset){
+  if(!offset) return {x:(a.x+b.x)/2,y:(a.y+b.y)/2};
+  const dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy)||1,px=-dy/len,py=dx/len;
+  const c1={x:a.x+dx/3+px*offset,y:a.y+dy/3+py*offset},c2={x:a.x+dx*2/3+px*offset,y:a.y+dy*2/3+py*offset};
+  return {x:(a.x+3*c1.x+3*c2.x+b.x)/8,y:(a.y+3*c1.y+3*c2.y+b.y)/8};
+}
 function pointInBay(bay,event){
   const rect=bay.getBoundingClientRect(),height=Number(bay.style.height.replace('px',''))||bay.offsetHeight;
   return {x:Math.max(0,Math.min(452,(event.clientX-rect.left)*(452/rect.width))),y:Math.max(0,Math.min(height,(event.clientY-rect.top)*(height/rect.height)))};
@@ -814,10 +835,14 @@ function renderCableLayer(bay,rack,view){
   const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');
   svg.setAttribute('class','cable-layer'); svg.setAttribute('width','452'); svg.setAttribute('height',String(rack.he*U)); svg.setAttribute('viewBox','0 0 452 '+(rack.he*U));
   if(selectedCableInfo())svg.classList.add('has-selection');
-  cables.forEach(c=>{
-    const a=cableEndpoint(rack,c.from,view),b=cableEndpoint(rack,c.to,view); if(!a||!b)return;
+  const ends=cables.map(c=>({a:cableEndpoint(rack,c.from,view),b:cableEndpoint(rack,c.to,view)}));
+  const segs=cables.map((c,i)=>{ const e=ends[i]; return (e.a&&e.b&&(!Array.isArray(c.points)||!c.points.length))?{a:e.a,b:e.b}:null; });
+  const fan=cableFanOffsets(segs,34,18,15);
+  cables.forEach((c,ci)=>{
+    const a=ends[ci].a,b=ends[ci].b; if(!a||!b)return;
     if(!Array.isArray(c.points))c.points=[];
-    const isSelected=!!(selectedCable&&selectedCable.rackId===rack.id&&selectedCable.cableId===c.id),d=cablePathD(a,c.points,b),color=c.color||cableColor(c.type);
+    const offset=c.points.length?0:fan[ci];
+    const isSelected=!!(selectedCable&&selectedCable.rackId===rack.id&&selectedCable.cableId===c.id),d=c.points.length?cablePathD(a,c.points,b):cableCurveD(a,b,offset),color=c.color||cableColor(c.type);
     const path=document.createElementNS('http://www.w3.org/2000/svg','path'); path.setAttribute('class','cable-path'+(isSelected?' selected':'')); path.setAttribute('d',d); path.setAttribute('stroke',color); svg.appendChild(path);
     const hit=document.createElementNS('http://www.w3.org/2000/svg','path'); hit.setAttribute('class','cable-hit'); hit.setAttribute('d',d);
     hit.addEventListener('click',event=>{ event.stopPropagation(); selectedCable=isSelected?null:{rackId:rack.id,cableId:c.id}; updateCableStatus(); renderRacks(); }); svg.appendChild(hit);
@@ -828,8 +853,9 @@ function renderCableLayer(bay,rack,view){
         });
         const all=[a,...c.points,b];
         for(let index=0;index<all.length-1;index++){
-          const add=document.createElementNS('http://www.w3.org/2000/svg','circle'); add.setAttribute('class','cable-addpoint'); add.setAttribute('cx',String((all[index].x+all[index+1].x)/2)); add.setAttribute('cy',String((all[index].y+all[index+1].y)/2)); add.setAttribute('r','4.5');
-          add.addEventListener('click',event=>{ event.stopPropagation(); c.points.splice(index,0,{x:(all[index].x+all[index+1].x)/2,y:(all[index].y+all[index+1].y)/2}); save(); renderRacks(); }); svg.appendChild(add);
+          const mid=c.points.length?{x:(all[index].x+all[index+1].x)/2,y:(all[index].y+all[index+1].y)/2}:cableCurveMid(a,b,offset);
+          const add=document.createElementNS('http://www.w3.org/2000/svg','circle'); add.setAttribute('class','cable-addpoint'); add.setAttribute('cx',String(mid.x)); add.setAttribute('cy',String(mid.y)); add.setAttribute('r','4.5');
+          add.addEventListener('click',event=>{ event.stopPropagation(); c.points.splice(index,0,{x:mid.x,y:mid.y}); save(); renderRacks(); }); svg.appendChild(add);
         }
     }
   });
@@ -853,9 +879,12 @@ function crossCableEndpoint(canvas,ref){const port=[...canvas.querySelectorAll('
 function renderCrossCableLayer(canvas,view){
   if(!state.showCables&&!state.cableMode)return;const cables=state.showCables?(state.crossCables||[]).filter(c=>c.view===view):[];if(!cables.length&&!state.cableMode)return;
   const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('class','cable-layer cross-cable-layer');svg.setAttribute('width',String(canvas.offsetWidth));svg.setAttribute('height',String(canvas.offsetHeight));svg.setAttribute('viewBox','0 0 '+canvas.offsetWidth+' '+canvas.offsetHeight);if(selectedCableInfo())svg.classList.add('has-selection');
-  cables.forEach(c=>{const a=crossCableEndpoint(canvas,c.from),b=crossCableEndpoint(canvas,c.to);if(!a||!b)return;if(!Array.isArray(c.points))c.points=[];const screen=crossCableScreenPoints(c,a,b);const selected=!!(selectedCable&&selectedCable.rackId==='cross'&&selectedCable.cableId===c.id),d=cablePathD(a,screen,b),color=c.color||cableColor(c.type);
+  const ends=cables.map(c=>({a:crossCableEndpoint(canvas,c.from),b:crossCableEndpoint(canvas,c.to)}));
+  const segs=cables.map((c,i)=>{const e=ends[i];return (e.a&&e.b&&(!Array.isArray(c.points)||!c.points.length))?{a:e.a,b:e.b}:null;});
+  const fan=cableFanOffsets(segs,40,18,18);
+  cables.forEach((c,ci)=>{const a=ends[ci].a,b=ends[ci].b;if(!a||!b)return;if(!Array.isArray(c.points))c.points=[];const screen=crossCableScreenPoints(c,a,b);const offset=c.points.length?0:fan[ci];const selected=!!(selectedCable&&selectedCable.rackId==='cross'&&selectedCable.cableId===c.id),d=c.points.length?cablePathD(a,screen,b):cableCurveD(a,b,offset),color=c.color||cableColor(c.type);
     const path=document.createElementNS('http://www.w3.org/2000/svg','path');path.setAttribute('class','cable-path'+(selected?' selected':''));path.setAttribute('d',d);path.setAttribute('stroke',color);svg.appendChild(path);const hit=document.createElementNS('http://www.w3.org/2000/svg','path');hit.setAttribute('class','cable-hit');hit.setAttribute('d',d);hit.addEventListener('click',event=>{event.stopPropagation();selectedCable=selected?null:{rackId:'cross',cableId:c.id};updateCableStatus();renderRacks();});svg.appendChild(hit);
-    if(state.cableMode&&selected){screen.forEach((point,index)=>{const handle=document.createElementNS('http://www.w3.org/2000/svg','circle');handle.setAttribute('class','cable-point');handle.setAttribute('cx',String(point.x));handle.setAttribute('cy',String(point.y));handle.setAttribute('r','6');handle.setAttribute('fill',color);handle.addEventListener('pointerdown',event=>startCrossPointDrag(event,canvas,c,index,path,hit,handle,a,b));svg.appendChild(handle);});const all=[a,...screen,b];for(let index=0;index<all.length-1;index++){const mid={x:(all[index].x+all[index+1].x)/2,y:(all[index].y+all[index+1].y)/2};const add=document.createElementNS('http://www.w3.org/2000/svg','circle');add.setAttribute('class','cable-addpoint');add.setAttribute('cx',String(mid.x));add.setAttribute('cy',String(mid.y));add.setAttribute('r','4.5');add.addEventListener('click',event=>{event.stopPropagation();c.points.splice(index,0,crossPointToParam(a,b,mid));save();renderRacks();});svg.appendChild(add);}}
+    if(state.cableMode&&selected){screen.forEach((point,index)=>{const handle=document.createElementNS('http://www.w3.org/2000/svg','circle');handle.setAttribute('class','cable-point');handle.setAttribute('cx',String(point.x));handle.setAttribute('cy',String(point.y));handle.setAttribute('r','6');handle.setAttribute('fill',color);handle.addEventListener('pointerdown',event=>startCrossPointDrag(event,canvas,c,index,path,hit,handle,a,b));svg.appendChild(handle);});const all=[a,...screen,b];for(let index=0;index<all.length-1;index++){const mid=c.points.length?{x:(all[index].x+all[index+1].x)/2,y:(all[index].y+all[index+1].y)/2}:cableCurveMid(a,b,offset);const add=document.createElementNS('http://www.w3.org/2000/svg','circle');add.setAttribute('class','cable-addpoint');add.setAttribute('cx',String(mid.x));add.setAttribute('cy',String(mid.y));add.setAttribute('r','4.5');add.addEventListener('click',event=>{event.stopPropagation();c.points.splice(index,0,crossPointToParam(a,b,mid));save();renderRacks();});svg.appendChild(add);}}
   });canvas.appendChild(svg);
 }
 function startCrossPointDrag(event,canvas,cable,index,path,hit,handle,a,b){event.preventDefault();event.stopPropagation();pointDrag={cross:true,canvas,cable,index,path,hit,handle,a,b};window.addEventListener('pointermove',moveCrossPointDrag);window.addEventListener('pointerup',endCrossPointDrag);}
