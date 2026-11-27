@@ -850,7 +850,7 @@ function renderCableLayer(bay,rack,view){
   if(selectedCableInfo())svg.classList.add('has-selection');
   const ends=cables.map(c=>({a:cableEndpoint(rack,c.from,view),b:cableEndpoint(rack,c.to,view)}));
   const segs=cables.map((c,i)=>{ const e=ends[i]; return (e.a&&e.b&&(!Array.isArray(c.points)||!c.points.length))?{a:e.a,b:e.b}:null; });
-  const fan=cableFanOffsets(segs,15,22,22);
+  const fan=cableFanOffsets(segs,15,24,30);
   cables.forEach((c,ci)=>{
     const a=ends[ci].a,b=ends[ci].b; if(!a||!b)return;
     if(!Array.isArray(c.points))c.points=[];
@@ -894,7 +894,7 @@ function renderCrossCableLayer(canvas,view){
   const svg=document.createElementNS('http://www.w3.org/2000/svg','svg');svg.setAttribute('class','cable-layer cross-cable-layer');svg.setAttribute('width',String(canvas.offsetWidth));svg.setAttribute('height',String(canvas.offsetHeight));svg.setAttribute('viewBox','0 0 '+canvas.offsetWidth+' '+canvas.offsetHeight);if(selectedCableInfo())svg.classList.add('has-selection');
   const ends=cables.map(c=>({a:crossCableEndpoint(canvas,c.from),b:crossCableEndpoint(canvas,c.to)}));
   const segs=cables.map((c,i)=>{const e=ends[i];return (e.a&&e.b&&(!Array.isArray(c.points)||!c.points.length))?{a:e.a,b:e.b}:null;});
-  const fan=cableFanOffsets(segs,18,22,26);
+  const fan=cableFanOffsets(segs,18,24,36);
   cables.forEach((c,ci)=>{const a=ends[ci].a,b=ends[ci].b;if(!a||!b)return;if(!Array.isArray(c.points))c.points=[];const screen=crossCableScreenPoints(c,a,b);const offset=c.points.length?0:fan[ci];const selected=!!(selectedCable&&selectedCable.rackId==='cross'&&selectedCable.cableId===c.id),d=c.points.length?cablePathD(a,screen,b):cableCurveD(a,b,offset),color=c.color||cableColor(c.type);
     const path=document.createElementNS('http://www.w3.org/2000/svg','path');path.setAttribute('class','cable-path'+(selected?' selected':''));path.setAttribute('d',d);path.setAttribute('stroke',color);svg.appendChild(path);const hit=document.createElementNS('http://www.w3.org/2000/svg','path');hit.setAttribute('class','cable-hit');hit.setAttribute('d',d);hit.addEventListener('click',event=>{event.stopPropagation();selectedCable=selected?null:{rackId:'cross',cableId:c.id};updateCableStatus();renderRacks();});svg.appendChild(hit);
     if(state.cableMode&&selected){screen.forEach((point,index)=>{const handle=document.createElementNS('http://www.w3.org/2000/svg','circle');handle.setAttribute('class','cable-point');handle.setAttribute('cx',String(point.x));handle.setAttribute('cy',String(point.y));handle.setAttribute('r','6');handle.setAttribute('fill',color);handle.addEventListener('pointerdown',event=>startCrossPointDrag(event,canvas,c,index,path,hit,handle,a,b));svg.appendChild(handle);});const all=[a,...screen,b];for(let index=0;index<all.length-1;index++){const mid=c.points.length?{x:(all[index].x+all[index+1].x)/2,y:(all[index].y+all[index+1].y)/2}:cableCurveMid(a,b,offset);const add=document.createElementNS('http://www.w3.org/2000/svg','circle');add.setAttribute('class','cable-addpoint');add.setAttribute('cx',String(mid.x));add.setAttribute('cy',String(mid.y));add.setAttribute('r','4.5');add.addEventListener('click',event=>{event.stopPropagation();c.points.splice(index,0,crossPointToParam(a,b,mid));save();renderRacks();});svg.appendChild(add);}}
@@ -1712,10 +1712,17 @@ function fitToContent(){
   requestAnimationFrame(()=>{scrollHost.scrollLeft=Math.max(0,(minX-pad)*fit);scrollHost.scrollTop=Math.max(0,(minY-pad)*fit);});
 }
 document.getElementById('zoomFit').addEventListener('click',fitToContent);
+// Mouse wheel zooms the canvas, centred on the cursor (hold Shift to scroll instead).
 document.querySelector('main').addEventListener('wheel',e=>{
-  if(!e.altKey||!e.deltaY) return;
+  if(!e.deltaY||e.shiftKey) return;
   e.preventDefault();
-  updateZoom(state.zoom+(e.deltaY<0?.1:-.1));
+  const main=e.currentTarget,old=state.zoom;
+  const next=Math.max(.5,Math.min(2,Math.round((old+(e.deltaY<0?.1:-.1))*10)/10));
+  if(next===old) return;
+  const rect=main.getBoundingClientRect(),cursorX=e.clientX-rect.left,cursorY=e.clientY-rect.top;
+  const contentX=main.scrollLeft+cursorX,contentY=main.scrollTop+cursorY,ratio=next/old;
+  updateZoom(next);
+  requestAnimationFrame(()=>{ main.scrollLeft=contentX*ratio-cursorX; main.scrollTop=contentY*ratio-cursorY; });
 },{passive:false});
 
 function applySidebarWidth(value,persist){
